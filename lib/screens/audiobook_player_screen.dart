@@ -1,22 +1,24 @@
 import 'package:flutter/material.dart';
 
-class AudiobookPlayer extends StatelessWidget {
-  final int index;
+import '../models/audiobook.dart';
 
-  const AudiobookPlayer({super.key, required this.index});
+class AudiobookPlayer extends StatelessWidget {
+  final AudioBook audiobook;
+
+  const AudiobookPlayer({super.key, required this.audiobook});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Audiobook ${index + 1}'),
+        title: Text(audiobook.title),
       ),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              'Details for Audiobook ${index + 1}',
+              audiobook.title,
               style: Theme.of(context).textTheme.headlineMedium,
             ),
             const SizedBox(height: 20),

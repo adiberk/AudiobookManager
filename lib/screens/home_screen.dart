@@ -1,6 +1,18 @@
 // lib/screens/main_screen.dart
-import 'package:flutter/material.dart';
+import 'dart:io';
 
+import 'package:audiobook_manager/components/import_audiobooks.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
+import 'package:marquee/marquee.dart';
+import 'package:uuid/uuid.dart';
+
+import '../components/conditional_marqee_text.dart';
+import '../models/audiobook.dart';
+import '../providers/audiobook_provider.dart';
+import '../services/file_service.dart';
+import '../services/metadata_service.dart';
 import 'audiobook_player_screen.dart';
 
 class MainScreen extends StatefulWidget {
@@ -95,38 +107,151 @@ class _MainScreenState extends State<MainScreen> {
 }
 
 // lib/screens/home_screen.dart
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
+  Future<void> _pickAndProcessAudiobook(WidgetRef ref) async {
+    try {
+      // Pick the file
+      final File? pickedFile = await FileService.pickAudioFile();
+      if (pickedFile == null) return;
+
+      // Process the file (copy to app directory)
+      final String? processedPath =
+          await FileService.processAudioFile(pickedFile);
+      if (processedPath == null) return;
+
+      // Extract metadata
+      final metadata = await MetadataService.extractMetadata(processedPath);
+
+      // Create AudioBook object
+      final audioBook = AudioBook(
+        title: metadata['title'] ?? 'Unknown Title',
+        author: metadata['author'] ?? 'Unknown Author',
+        filePath: processedPath,
+        duration: Duration(seconds: metadata['duration']['seconds'].round()),
+        coverPhoto: metadata['cover_photo'],
+        chapters: (metadata['chapters'] as List<Chapter>),
+      );
+
+      // Add to provider
+      ref.read(audioBooksProvider.notifier).addAudioBook(audioBook);
+    } catch (e) {
+      print('Error processing audiobook: $e');
+      // In a real app, you'd want to show an error message to the user
+    }
+  }
+
+  // Delete
+  Future<void> _deleteAudiobook(WidgetRef ref, AudioBook audiobook) async {
+    await FileService.deleteFile(audiobook.filePath);
+    ref.read(audioBooksProvider.notifier).removeAudioBook(audiobook.id);
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final audiobooks = ref.watch(audioBooksProvider);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('AudioBook Player'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add),
+            onPressed: () async {
+              await _pickAndProcessAudiobook(ref);
+            },
+          ),
+        ],
       ),
-      body: ListView.builder(
-        itemCount: 10,
-        itemBuilder: (context, index) {
-          return Card(
-            // margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            // color: Theme.of(context).cardColor,
-            child: ListTile(
-              leading: const Icon(Icons.book),
-              title: Text(
-                'Audiobook ${index + 1}',
-              ),
-              subtitle: Text('Author Name'),
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => AudiobookPlayer(index: index),
+      body: audiobooks.isEmpty
+          ? const Center(child: Text('No audiobooks yet. Add some!'))
+          : ListView.builder(
+              itemCount: audiobooks.length,
+              itemBuilder: (context, index) {
+                var audiobook = audiobooks[index];
+                GlobalKey actionKey = GlobalKey();
+
+                return Slidable(
+                  key: Key(audiobook.id), // Ensure a unique key
+                  endActionPane: ActionPane(
+                    motion: const DrawerMotion(), // Smooth sliding motion
+                    children: [
+                      // More options button
+                      SlidableAction(
+                        key: actionKey,
+                        onPressed: (context) {
+                          final RenderBox renderBox = actionKey.currentContext!
+                              .findRenderObject() as RenderBox;
+                          final Offset offset =
+                              renderBox.localToGlobal(Offset.zero);
+
+                          showMenu(
+                            context: context,
+                            position: RelativeRect.fromLTRB(
+                              offset.dx, // X position
+                              offset.dy +
+                                  renderBox.size.height, // Below the button
+                              offset.dx + renderBox.size.width,
+                              offset.dy +
+                                  renderBox.size.height +
+                                  50, // Adjust height
+                            ),
+                            items: [
+                              PopupMenuItem(child: Text("Rename")),
+                              PopupMenuItem(child: Text("Move to Folder")),
+                            ],
+                          );
+                        },
+                        // backgroundColor: Colors.grey.shade700,
+                        // foregroundColor: Colors.white,
+                        icon: Icons.more_vert,
+                        label: 'More',
+                      ),
+                      // Delete button
+                      SlidableAction(
+                        onPressed: (context) {
+                          _deleteAudiobook(ref, audiobook);
+                        },
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                        icon: Icons.delete,
+                        label: 'Delete',
+                      ),
+                    ],
+                  ),
+                  child: Card(
+                    child: ListTile(
+                      leading: audiobook.coverPhoto != null
+                          ? Image.memory(
+                              audiobook.coverPhoto!,
+                              width: 55,
+                              height: 55,
+                              fit: BoxFit.cover,
+                            )
+                          : const Icon(Icons.book_rounded),
+                      title: ConditionalMarquee(
+                        text: audiobook.title,
+                        style: const TextStyle(fontSize: 14),
+                        maxWidth: 100,
+                        velocity: 50,
+                        pauseAfterRound: const Duration(seconds: 3),
+                      ),
+                      subtitle: Text(audiobook.author,
+                          style: const TextStyle(fontSize: 12)),
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                AudiobookPlayer(audiobook: audiobook),
+                          ),
+                        );
+                      },
+                    ),
                   ),
                 );
               },
             ),
-          );
-        },
-      ),
     );
   }
 }
