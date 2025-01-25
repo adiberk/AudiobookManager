@@ -28,58 +28,66 @@ class MiniPlayer extends ConsumerWidget {
         onTap: () {
           ref.read(playerProvider.notifier).toggleExpanded();
         },
-        child: Container(
-          height: 60,
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.secondary,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.2),
-                blurRadius: 4,
-              ),
-            ],
+        child: ClipRRect(
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(10),
+            topRight: Radius.circular(10),
+            bottomLeft: Radius.circular(10),
+            bottomRight: Radius.circular(10),
           ),
-          child: Row(
-            children: [
-              if (book?.coverPhoto != null)
-                Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Image.memory(
-                    book?.coverPhoto! ?? Uint8List(0),
-                    width: 44,
-                    height: 44,
-                    fit: BoxFit.cover,
+          child: Container(
+            height: 60,
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.secondary,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.2),
+                  blurRadius: 4,
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                if (book?.coverPhoto != null)
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Image.memory(
+                      book?.coverPhoto! ?? Uint8List(0),
+                      width: 44,
+                      height: 44,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ConditionalMarquee(
+                        text: book?.title ?? '',
+                        style: const TextStyle(fontSize: 14),
+                        maxWidth: 250,
+                        velocity: 20,
+                        pauseAfterRound: const Duration(seconds: 3),
+                      ),
+                      Text(
+                        book?.author ?? '',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ),
                 ),
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    ConditionalMarquee(
-                      text: book?.title ?? '',
-                      style: const TextStyle(fontSize: 14),
-                      maxWidth: 250,
-                      velocity: 20,
-                      pauseAfterRound: const Duration(seconds: 3),
-                    ),
-                    Text(
-                      book?.author ?? '',
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
+                IconButton(
+                  icon: Icon(
+                    playerState.isPlaying ? Icons.pause : Icons.play_arrow,
+                    color: Colors.white,
+                  ),
+                  onPressed: () {
+                    ref.read(playerProvider.notifier).togglePlay();
+                  },
                 ),
-              ),
-              IconButton(
-                icon: Icon(
-                  playerState.isPlaying ? Icons.pause : Icons.play_arrow,
-                  color: Colors.white,
-                ),
-                onPressed: () {
-                  ref.read(playerProvider.notifier).togglePlay();
-                },
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

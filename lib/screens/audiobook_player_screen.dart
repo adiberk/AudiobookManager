@@ -15,14 +15,23 @@ class AudiobookPlayerScreen extends ConsumerWidget {
 
     // Only show if there's a book and the player is expanded
     if (audiobook == null || !playerState.isExpanded) {
-      return const SizedBox.shrink();
+      return AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+        transform:
+            Matrix4.translationValues(0, MediaQuery.of(context).size.height, 0),
+      );
     }
-    return DraggableScrollableSheet(
-      initialChildSize: 1.0,
-      minChildSize: 0.0,
-      maxChildSize: 1.0,
-      builder: (context, scrollController) {
-        return NotificationListener<DraggableScrollableNotification>(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+      transform: Matrix4.translationValues(0, 0, 0),
+      child: DraggableScrollableSheet(
+        initialChildSize: 1.0,
+        minChildSize: 0.0,
+        maxChildSize: 1.0,
+        builder: (context, scrollController) {
+          return NotificationListener<DraggableScrollableNotification>(
             onNotification: (notification) {
               if (notification.extent <= 0.15) {
                 ref.read(playerProvider.notifier).toggleExpanded();
@@ -188,8 +197,10 @@ class AudiobookPlayerScreen extends ConsumerWidget {
                   ],
                 ),
               ),
-            ));
-      },
+            ),
+          );
+        },
+      ),
     );
   }
 }
