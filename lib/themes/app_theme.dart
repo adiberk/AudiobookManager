@@ -6,19 +6,18 @@ class AppTheme {
   static const secondaryColor = Color.fromARGB(255, 43, 164, 220);
   static const backgroundColor = Color(0xFF121212); // Deep Black
   static const surfaceColor = Color(0xFF1E1E1E); // Dark Gray
-  static const dividerColor =
-      Color.fromARGB(255, 102, 101, 101); // Subtle Divider
+  static const dividerColor = Color.fromARGB(255, 102, 101, 101);
   static const textColor = Color(0xFFE0E0E0); // Light Gray Text
   static const errorColor = Color(0xFFCF6679); // Pinkish Red
 
   // Light Theme Colors
-  static const lightPrimaryColor = Color(0xFF6200EE);
-  static const lightSecondaryColor = Color.fromARGB(255, 20, 203, 184);
-  static const lightBackgroundColor = Color(0xFFF5F5F5);
-  static const lightSurfaceColor = Color(0xFFFFFFFF);
-  static const lightDividerColor = Color(0xFFE0E0E0);
-  static const lightTextColor = Color(0xFF212121);
-  static const lightErrorColor = Color(0xFFB00020);
+  static const lightPrimaryColor = Color(0xFF7C4DFF); // Softer Purple
+  static const lightSecondaryColor = Color(0xFF4DB6AC); // Muted Teal
+  static const lightBackgroundColor = Color(0xFFF5F5F7); // Warm Soft Gray-White
+  static const lightSurfaceColor = Color(0xFFFFFFFF); // Clean White
+  static const lightDividerColor = Color(0xFFDADCE0); // Softer Gray
+  static const lightTextColor = Color(0xFF37474F);
+  static const lightErrorColor = Color(0xFFEF5350); // Soft Red
 
   static final ThemeData darkTheme = ThemeData(
     useMaterial3: true,
@@ -57,9 +56,10 @@ class AppTheme {
     colorScheme: const ColorScheme.light(
       primary: lightPrimaryColor,
       secondary: lightSecondaryColor,
-      background: lightBackgroundColor,
+      // background: lightBackgroundColor,
       surface: lightSurfaceColor,
       error: lightErrorColor,
+      onSurface: lightTextColor,
     ),
     scaffoldBackgroundColor: lightBackgroundColor,
     dividerColor: lightDividerColor,
@@ -70,13 +70,21 @@ class AppTheme {
     ),
     cardColor: lightSurfaceColor,
     appBarTheme: const AppBarTheme(
-      backgroundColor: Color.fromARGB(214, 245, 245, 245),
+      backgroundColor: lightSurfaceColor,
+      elevation: 0,
       titleTextStyle: TextStyle(
           color: lightTextColor, fontSize: 20, fontWeight: FontWeight.bold),
+      iconTheme: IconThemeData(color: lightTextColor),
     ),
     listTileTheme: const ListTileThemeData(
       tileColor: lightSurfaceColor,
       textColor: lightTextColor,
+    ),
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: lightPrimaryColor,
+        foregroundColor: Colors.white,
+      ),
     ),
   );
 }
