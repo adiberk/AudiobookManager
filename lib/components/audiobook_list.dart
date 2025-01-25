@@ -1,3 +1,4 @@
+import 'package:audiobook_manager/utils/duration_formatter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
@@ -81,19 +82,27 @@ class AudiobookList extends ConsumerWidget {
                 velocity: 40,
                 pauseAfterRound: const Duration(seconds: 3),
               ),
-              subtitle:
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Text(audiobook.author, style: const TextStyle(fontSize: 12)),
+                  Text(
+                    DurationFormatter.format(audiobook.duration),
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                ],
+              ),
               onTap: () {
                 final playerNotifier = ref.read(playerProvider.notifier);
                 final currentBook = ref.read(playerProvider).currentBook;
 
-                if (currentBook?.id == audiobook.id) {
-                  // If the same book is selected, just toggle expanded state
-                  playerNotifier.toggleExpanded();
-                } else {
+                if (currentBook?.id != audiobook.id) {
+                  //   // If the same book is selected, just toggle expanded state
+                  //   playerNotifier.toggleExpanded();
+                  // } else {
                   // If different book, start playing and ensure player is expanded
                   playerNotifier.playBook(audiobook);
-                  playerNotifier.setExpanded(true);
+                  playerNotifier.setExpanded(false);
                 }
               },
             ),
@@ -104,6 +113,14 @@ class AudiobookList extends ConsumerWidget {
   }
 
   Future<void> _deleteAudiobook(WidgetRef ref, AudioBook audiobook) async {
+    // Check if this is the currently playing book
+    final playerState = ref.read(playerProvider);
+    if (playerState.currentBook?.id == audiobook.id) {
+      // Clear the current book from the player
+      ref.read(playerProvider.notifier).clearCurrentBook();
+    }
+
+    // Proceed with deletion
     await FileService.deleteFile(audiobook.filePath);
     ref.read(audioBooksProvider.notifier).removeAudioBook(audiobook.id);
   }

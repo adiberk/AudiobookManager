@@ -1,4 +1,6 @@
 // lib/widgets/mini_player.dart
+import 'dart:typed_data';
+
 import 'package:audiobook_manager/components/conditional_marqee_text.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,10 +14,20 @@ class MiniPlayer extends ConsumerWidget {
     final playerState = ref.watch(playerProvider);
     final book = playerState.currentBook;
 
-    if (book == null || playerState.isExpanded) return const SizedBox.shrink();
+    // if (book == null) return const SizedBox.shrink();
 
-    return GestureDetector(
-        onTap: () => ref.read(playerProvider.notifier).toggleExpanded(),
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      transform: Matrix4.translationValues(
+          0,
+          playerState.isExpanded || book == null
+              ? 60
+              : 0, // Slide down by its height when expanded
+          0),
+      child: GestureDetector(
+        onTap: () {
+          ref.read(playerProvider.notifier).toggleExpanded();
+        },
         child: Container(
           height: 60,
           decoration: BoxDecoration(
@@ -29,11 +41,11 @@ class MiniPlayer extends ConsumerWidget {
           ),
           child: Row(
             children: [
-              if (book.coverPhoto != null)
+              if (book?.coverPhoto != null)
                 Padding(
                   padding: const EdgeInsets.all(8.0),
                   child: Image.memory(
-                    book.coverPhoto!,
+                    book?.coverPhoto! ?? Uint8List(0),
                     width: 44,
                     height: 44,
                     fit: BoxFit.cover,
@@ -45,14 +57,14 @@ class MiniPlayer extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     ConditionalMarquee(
-                      text: book.title,
+                      text: book?.title ?? '',
                       style: const TextStyle(fontSize: 14),
                       maxWidth: 250,
                       velocity: 20,
                       pauseAfterRound: const Duration(seconds: 3),
                     ),
                     Text(
-                      book.author,
+                      book?.author ?? '',
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
@@ -69,6 +81,8 @@ class MiniPlayer extends ConsumerWidget {
               ),
             ],
           ),
-        ));
+        ),
+      ),
+    );
   }
 }

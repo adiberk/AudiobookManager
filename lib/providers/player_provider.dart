@@ -40,6 +40,10 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
     );
   }
 
+  void clearCurrentBook() {
+    state = PlayerState(); // This resets everything to initial state
+  }
+
   void setExpanded(bool expanded) {
     state = state.copyWith(isExpanded: expanded);
   }
@@ -54,6 +58,12 @@ class PlayerNotifier extends StateNotifier<PlayerState> {
 
   void updatePosition(Duration position) {
     state = state.copyWith(currentPosition: position);
+  }
+
+  @override
+  void dispose() {
+    // Cleanup audio resources
+    super.dispose();
   }
 }
 
