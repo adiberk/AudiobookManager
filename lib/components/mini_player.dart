@@ -68,7 +68,7 @@ class MiniPlayer extends ConsumerWidget {
                         style: const TextStyle(fontSize: 14),
                         maxWidth: 250,
                         velocity: 20,
-                        pauseAfterRound: const Duration(seconds: 3),
+                        pauseAfterRound: const Duration(seconds: 0),
                       ),
                       Text(
                         book?.author ?? '',
