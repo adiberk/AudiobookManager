@@ -42,6 +42,7 @@ dependencies:
   hive_flutter: ^1.1.0
   flutter_slidable: ^4.0.0
   marquee: ^2.3.0
+  just_audio: ^0.9.43
 
 dev_dependencies:
   flutter_test:

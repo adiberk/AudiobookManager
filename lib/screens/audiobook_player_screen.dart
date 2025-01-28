@@ -1,12 +1,11 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/player_provider.dart';
 import '../components/player/player_cover_art.dart';
 import '../components/player/player_controls.dart';
 import '../components/player/player_seek_bar.dart';
 import '../components/player/player_metadata.dart';
 import '../components/player/drag_handle.dart';
+import '../providers/providers.dart';
 
 class AudiobookPlayerScreen extends ConsumerWidget {
   const AudiobookPlayerScreen({
@@ -15,11 +14,12 @@ class AudiobookPlayerScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final playerState = ref.watch(playerProvider);
+    final playerState = ref.watch(audioPlayerProvider);
+    final uiState = ref.watch(playerUIProvider);
     final audiobook = playerState.currentBook;
 
     // Only show if there's a book and the player is expanded
-    if (audiobook == null || !playerState.isExpanded) {
+    if (audiobook == null || !uiState.isExpanded) {
       return AnimatedContainer(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
@@ -27,6 +27,7 @@ class AudiobookPlayerScreen extends ConsumerWidget {
             Matrix4.translationValues(0, MediaQuery.of(context).size.height, 0),
       );
     }
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
@@ -38,8 +39,8 @@ class AudiobookPlayerScreen extends ConsumerWidget {
         builder: (context, scrollController) {
           return NotificationListener<DraggableScrollableNotification>(
             onNotification: (notification) {
-              if (notification.extent <= 0.15) {
-                ref.read(playerProvider.notifier).toggleExpanded();
+              if (notification.extent <= 0.50) {
+                ref.read(playerUIProvider.notifier).toggleExpanded();
               }
               return true;
             },
@@ -54,9 +55,10 @@ class AudiobookPlayerScreen extends ConsumerWidget {
                 child: Column(
                   children: [
                     DragHandle(
-                        onTap: () =>
-                            ref.read(playerProvider.notifier).toggleExpanded()),
-                    const SizedBox(height: 20),
+                        onTap: () => ref
+                            .read(playerUIProvider.notifier)
+                            .toggleExpanded()),
+                    const SizedBox(height: 10),
                     PlayerCoverArt(audiobook: audiobook),
                     PlayerMetadata(audiobook: audiobook),
                     const PlayerSeekBar(),

@@ -2,16 +2,17 @@
 import 'dart:typed_data';
 
 import 'package:audiobook_manager/components/conditional_marqee_text.dart';
+import 'package:audiobook_manager/providers/providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/player_provider.dart';
 
 class MiniPlayer extends ConsumerWidget {
   const MiniPlayer({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final playerState = ref.watch(playerProvider);
+    final playerState = ref.watch(audioPlayerProvider);
+    final uiState = ref.watch(playerUIProvider);
     final book = playerState.currentBook;
 
     // if (book == null) return const SizedBox.shrink();
@@ -20,13 +21,13 @@ class MiniPlayer extends ConsumerWidget {
       duration: const Duration(milliseconds: 300),
       transform: Matrix4.translationValues(
           0,
-          playerState.isExpanded || book == null
+          uiState.isExpanded || book == null
               ? 60
               : 0, // Slide down by its height when expanded
           0),
       child: GestureDetector(
         onTap: () {
-          ref.read(playerProvider.notifier).toggleExpanded();
+          ref.read(playerUIProvider.notifier).toggleExpanded();
         },
         child: ClipRRect(
           borderRadius: const BorderRadius.only(
@@ -48,11 +49,11 @@ class MiniPlayer extends ConsumerWidget {
             ),
             child: Row(
               children: [
-                if (book?.coverPhoto != null)
+                if (book?.coverImage != null)
                   Padding(
                     padding: const EdgeInsets.all(8.0),
                     child: Image.memory(
-                      book?.coverPhoto! ?? Uint8List(0),
+                      book?.coverImage! ?? Uint8List(0),
                       width: 44,
                       height: 44,
                       fit: BoxFit.cover,
@@ -83,7 +84,7 @@ class MiniPlayer extends ConsumerWidget {
                     color: Colors.white,
                   ),
                   onPressed: () {
-                    ref.read(playerProvider.notifier).togglePlay();
+                    ref.read(audioPlayerProvider.notifier).togglePlayPause();
                   },
                 ),
               ],

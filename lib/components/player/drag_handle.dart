@@ -10,13 +10,20 @@ class DragHandle extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        child: Container(
-          width: 40,
-          height: 4,
-          decoration: BoxDecoration(
-            color: Colors.grey[300],
-            borderRadius: BorderRadius.circular(2),
+        padding: EdgeInsets.only(
+          top: MediaQuery.of(context).padding.top +
+              12, // Add safe area padding plus original padding
+          bottom: 0,
+        ),
+        width: double.infinity,
+        child: Center(
+          child: Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey[400],
+              borderRadius: BorderRadius.circular(2),
+            ),
           ),
         ),
       ),

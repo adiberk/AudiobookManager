@@ -12,11 +12,11 @@ class PlayerCoverArt extends StatelessWidget {
       padding: const EdgeInsets.all(65.0),
       child: AspectRatio(
         aspectRatio: 1,
-        child: audiobook.coverPhoto != null
+        child: audiobook.coverImage != null
             ? ClipRRect(
                 borderRadius: BorderRadius.circular(8),
                 child: Image.memory(
-                  audiobook.coverPhoto!,
+                  audiobook.coverImage!,
                   fit: BoxFit.cover,
                 ),
               )

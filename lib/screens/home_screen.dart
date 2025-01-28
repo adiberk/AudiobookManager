@@ -3,12 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../components/audiobook_list.dart';
 import '../components/mini_player.dart';
-import '../models/audiobook.dart';
-import '../providers/audiobook_provider.dart';
-import '../services/file_service.dart';
-import '../services/metadata_service.dart';
+import '../providers/providers.dart';
 import 'audiobook_player_screen.dart';
-import '../providers/player_provider.dart';
 
 class MainScreen extends ConsumerStatefulWidget {
   const MainScreen({super.key});
@@ -65,7 +61,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           });
           // Close player if home button is tapped
           // if (index == 0) {
-          ref.read(playerProvider.notifier).setExpanded(false);
+          ref.read(playerUIProvider.notifier).setExpanded(false);
           // }
           _navigatorKey.currentState?.popUntil((route) => route.isFirst);
         },
@@ -97,40 +93,26 @@ class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   Future<void> _pickAndProcessAudiobook(WidgetRef ref) async {
+    final importService = ref.read(importServiceProvider);
     try {
+      final audiobookManager = ref.read(audiobooksProvider.notifier);
       // Pick the file
-      final File? pickedFile = await FileService.pickAudioFile();
-      if (pickedFile == null) return;
-
-      // Process the file (copy to app directory)
-      final String? processedPath =
-          await FileService.processAudioFile(pickedFile);
-      if (processedPath == null) return;
-
-      // Extract metadata
-      final metadata = await MetadataService.extractMetadata(processedPath);
-
-      // Create AudioBook object
-      final audioBook = AudioBook(
-        title: metadata['title'] ?? 'Unknown Title',
-        author: metadata['author'] ?? 'Unknown Author',
-        filePath: processedPath,
-        duration: Duration(seconds: metadata['duration']['seconds'].round()),
-        coverPhoto: metadata['cover_photo'],
-        chapters: (metadata['chapters'] as List<Chapter>),
-      );
-
-      // Add to provider
-      ref.read(audioBooksProvider.notifier).addAudioBook(audioBook);
+      final audiobooks = await importService.importFiles();
+      for (final book in audiobooks) {
+        await audiobookManager.addAudiobook(book);
+      }
     } catch (e) {
-      print('Error processing audiobook: $e');
-      // In a real app, you'd want to show an error message to the user
+      if (e is FileSystemException) {
+        // Handle file system exceptions
+      } else {
+        // Handle other exceptions
+      }
     }
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final audiobooks = ref.watch(audioBooksProvider);
+    final audiobooks = ref.watch(audiobooksProvider);
 
     return Scaffold(
         appBar: AppBar(

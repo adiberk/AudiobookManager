@@ -1,14 +1,12 @@
-// lib/models/audiobook.dart
 import 'dart:convert';
 import 'dart:typed_data';
-
 import 'package:uuid/uuid.dart';
 
 class Chapter {
   final String title;
   final Duration start;
   final Duration end;
-  final String? filePath;
+  final String? filePath; // Added for folder-based chapters
 
   Chapter({
     required this.title,
@@ -33,17 +31,15 @@ class Chapter {
 }
 
 class AudioBook {
-  static const int currentVersion = 1;
   final String id;
   final String title;
   final String author;
-  final String filePath;
-  final Duration duration;
-  final int version;
+  final String duration;
+  final String path;
+  final Uint8List? coverImage;
   final List<Chapter> chapters;
-  final Uint8List? coverPhoto;
-  final bool isFolder;
-  final bool isJoinedVolume;
+  final bool isFolder; // New field
+  final bool isJoinedVolume; // New field
   Duration currentPosition;
   int currentChapterIndex;
 
@@ -51,10 +47,9 @@ class AudioBook {
     String? id,
     required this.title,
     required this.author,
-    required this.filePath,
     required this.duration,
-    this.version = currentVersion,
-    this.coverPhoto,
+    required this.path,
+    this.coverImage,
     this.chapters = const [],
     this.isFolder = false, // Default to false
     this.isJoinedVolume = false, // Default to false
@@ -62,40 +57,62 @@ class AudioBook {
     this.currentChapterIndex = 0,
   }) : id = id ?? const Uuid().v4();
 
-  // Convert AudioBook to Map for storage
-  Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'title': title,
-      'author': author,
-      'filePath': filePath,
-      'duration': duration.inMicroseconds,
-      'chapters': chapters.map((c) => c.toJson()).toList(),
-      'coverPhoto': coverPhoto != null ? base64Encode(coverPhoto!) : null,
-      'currentPosition': currentPosition.inMicroseconds,
-      'currentChapterIndex': currentChapterIndex,
-      'isFolder': isFolder,
-      'isJoinedVolume': isJoinedVolume,
-      'version': version,
-    };
-  }
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'title': title,
+        'author': author,
+        'duration': duration,
+        'path': path,
+        'coverImage': coverImage != null ? base64Encode(coverImage!) : null,
+        'chapters': chapters.map((c) => c.toJson()).toList(),
+        'isFolder': isFolder,
+        'isJoinedVolume': isJoinedVolume,
+        'currentPosition': currentPosition.inMilliseconds,
+        'currentChapterIndex': currentChapterIndex,
+      };
 
-  // Create AudioBook from Map
-  factory AudioBook.fromMap(Map<String, dynamic> map) {
-    return AudioBook(
-        id: map['id'],
-        title: map['title'],
-        author: map['author'],
-        filePath: map['filePath'],
-        duration: Duration(microseconds: map['duration']),
-        coverPhoto:
-            map['coverPhoto'] != null ? base64Decode(map['coverPhoto']) : null,
+  factory AudioBook.fromJson(Map<String, dynamic> json) => AudioBook(
+        id: json['id'],
+        title: json['title'],
+        author: json['author'],
+        duration: json['duration'],
+        path: json['path'],
+        coverImage: json['coverImage'] != null
+            ? base64Decode(json['coverImage'])
+            : null,
         chapters:
-            (map['chapters'] as List).map((c) => Chapter.fromJson(c)).toList(),
-        currentPosition: Duration(microseconds: map['currentPosition']),
-        currentChapterIndex: map['currentChapterIndex'],
-        isFolder: map['isFolder'] ?? false,
-        isJoinedVolume: map['isJoinedVolume'] ?? false,
-        version: map['version'] ?? 1);
+            (json['chapters'] as List).map((c) => Chapter.fromJson(c)).toList(),
+        isFolder: json['isFolder'] ?? false,
+        isJoinedVolume: json['isJoinedVolume'] ?? false,
+        currentPosition: Duration(milliseconds: json['currentPosition']),
+        currentChapterIndex: json['currentChapterIndex'],
+      );
+
+  // Create a copy of the audiobook with modified properties
+  AudioBook copyWith({
+    String? title,
+    String? author,
+    String? duration,
+    String? path,
+    Uint8List? coverImage,
+    List<Chapter>? chapters,
+    bool? isFolder,
+    bool? isJoinedVolume,
+    Duration? currentPosition,
+    int? currentChapterIndex,
+  }) {
+    return AudioBook(
+      id: id, // Keep the same ID
+      title: title ?? this.title,
+      author: author ?? this.author,
+      duration: duration ?? this.duration,
+      path: path ?? this.path,
+      coverImage: coverImage ?? this.coverImage,
+      chapters: chapters ?? this.chapters,
+      isFolder: isFolder ?? this.isFolder,
+      isJoinedVolume: isJoinedVolume ?? this.isJoinedVolume,
+      currentPosition: currentPosition ?? this.currentPosition,
+      currentChapterIndex: currentChapterIndex ?? this.currentChapterIndex,
+    );
   }
 }

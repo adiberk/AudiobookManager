@@ -1,28 +1,68 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class PlayerSeekBar extends StatelessWidget {
+import '../../providers/providers.dart';
+import '../../utils/duration_formatter.dart';
+
+class PlayerSeekBar extends ConsumerWidget {
   const PlayerSeekBar({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final audioPlayer = ref.watch(audioPlayerProvider.notifier);
+    final audioPlayerState = ref.watch(audioPlayerProvider);
+    final currentChapterIndex = ref.watch(currentChapterIndexProvider);
+    final audiobook = audioPlayerState.currentBook;
+    if (audiobook == null) {
+      return const SizedBox();
+    }
+    final currentChapter = audiobook.isJoinedVolume
+        ? audiobook.chapters[currentChapterIndex]
+        : ref.watch(currentChapterProvider(audioPlayerState.position));
+    Duration chapterPosition;
+    Duration chapterDuration;
+
+    if (audiobook.isJoinedVolume) {
+      // For joined volumes, we want the position relative to the current chapter
+      chapterPosition = audioPlayerState.position;
+      chapterDuration = currentChapter.end - currentChapter.start;
+    } else {
+      // For single files, calculate relative to chapter start
+      chapterPosition = audioPlayerState.position - currentChapter.start;
+      chapterDuration = currentChapter.end - currentChapter.start;
+    }
+
+    // Ensure position is within bounds
+    chapterPosition = Duration(
+        milliseconds: chapterPosition.inMilliseconds
+            .clamp(0, chapterDuration.inMilliseconds));
+
     return Padding(
       padding: const EdgeInsets.all(24.0),
       child: Column(
         children: [
           Slider(
-            value: 0,
-            onChanged: (value) {/* TODO: Implement seeking */},
+            value: chapterPosition.inSeconds.toDouble(),
             min: 0,
-            max: 100,
-            thumbColor: Theme.of(context).colorScheme.secondary,
+            max: chapterDuration.inSeconds.toDouble(),
+            onChanged: (value) {
+              if (audiobook.isJoinedVolume) {
+                // For joined volumes, seek within the current chapter
+                audioPlayer.seek(Duration(seconds: value.toInt()));
+              } else {
+                audioPlayer.seek(
+                  currentChapter.start + Duration(seconds: value.toInt()),
+                );
+              }
+            },
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: const [
-                Text('0:00'),
-                Text('30:00'), // TODO: Get actual duration
+              children: [
+                Text(DurationFormatter.format(chapterPosition)),
+                Text(DurationFormatter.format(chapterDuration)),
               ],
             ),
           ),

@@ -1,17 +1,25 @@
-import 'package:audiobook_manager/utils/duration_formatter.dart';
+import 'package:audiobook_manager/providers/providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 
 import '../models/audiobook.dart';
-import '../providers/audiobook_provider.dart';
-import '../providers/player_provider.dart';
-import '../services/file_service.dart';
-import 'conditional_marqee_text.dart';
+import '../services/import_service.dart';
+import 'audiobook_list.item.dart';
 
 class AudiobookList extends ConsumerWidget {
   final List<AudioBook> audiobooks;
-  const AudiobookList({super.key, required this.audiobooks});
+  final void Function(AudioBook)? onTap;
+  final Widget Function(AudioBook)? leadingBuilder;
+  final List<Widget> Function(AudioBook, BuildContext)? actionBuilder;
+
+  const AudiobookList({
+    super.key,
+    required this.audiobooks,
+    this.onTap,
+    this.leadingBuilder,
+    this.actionBuilder,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -23,105 +31,76 @@ class AudiobookList extends ConsumerWidget {
       itemCount: audiobooks.length,
       itemBuilder: (context, index) {
         var audiobook = audiobooks[index];
-        GlobalKey actionKey = GlobalKey();
-
-        return Slidable(
-          key: Key(audiobook.id),
-          endActionPane: ActionPane(
-            motion: const DrawerMotion(),
-            children: [
-              SlidableAction(
-                key: actionKey,
-                onPressed: (context) {
-                  final RenderBox renderBox =
-                      actionKey.currentContext!.findRenderObject() as RenderBox;
-                  final Offset offset = renderBox.localToGlobal(Offset.zero);
-
-                  showMenu(
-                    context: context,
-                    position: RelativeRect.fromLTRB(
-                      offset.dx,
-                      offset.dy + renderBox.size.height,
-                      offset.dx + renderBox.size.width,
-                      offset.dy + renderBox.size.height + 50,
-                    ),
-                    items: [
-                      PopupMenuItem(child: Text("Rename")),
-                      PopupMenuItem(child: Text("Move to Folder")),
-                    ],
-                  );
-                },
-                icon: Icons.more_vert,
-                label: 'More',
-              ),
-              SlidableAction(
-                onPressed: (context) {
-                  _deleteAudiobook(ref, audiobook);
-                },
-                backgroundColor: Colors.red,
-                foregroundColor: Colors.white,
-                icon: Icons.delete,
-                label: 'Delete',
-              ),
-            ],
-          ),
-          child: Card(
-            child: ListTile(
-              leading: audiobook.coverPhoto != null
-                  ? Image.memory(
-                      audiobook.coverPhoto!,
-                      width: 55,
-                      height: 55,
-                      fit: BoxFit.cover,
-                    )
-                  : const Icon(Icons.book_rounded),
-              title: ConditionalMarquee(
-                text: audiobook.title,
-                style: const TextStyle(fontSize: 14),
-                maxWidth: 100,
-                velocity: 40,
-                pauseAfterRound: const Duration(seconds: 3),
-              ),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(audiobook.author, style: const TextStyle(fontSize: 12)),
-                  Text(
-                    DurationFormatter.format(audiobook.duration),
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                ],
-              ),
-              onTap: () {
-                final playerNotifier = ref.read(playerProvider.notifier);
-                final currentBook = ref.read(playerProvider).currentBook;
-
-                if (currentBook?.id != audiobook.id) {
-                  //   // If the same book is selected, just toggle expanded state
-                  //   playerNotifier.toggleExpanded();
-                  // } else {
-                  // If different book, start playing and ensure player is expanded
-                  playerNotifier.playBook(audiobook);
-                  playerNotifier.setExpanded(false);
-                }
-              },
-            ),
-          ),
+        return AudiobookListItem(
+          audiobook: audiobook,
+          onTap: onTap,
+          leadingBuilder: leadingBuilder,
+          actionBuilder: actionBuilder ?? _defaultActionBuilder,
         );
       },
     );
   }
 
-  Future<void> _deleteAudiobook(WidgetRef ref, AudioBook audiobook) async {
+  List<Widget> _defaultActionBuilder(
+      AudioBook audiobook, BuildContext context) {
+    GlobalKey actionKey = GlobalKey();
+    return [
+      SlidableAction(
+        key: actionKey,
+        onPressed: (context) {
+          final RenderBox renderBox =
+              actionKey.currentContext!.findRenderObject() as RenderBox;
+          final Offset offset = renderBox.localToGlobal(Offset.zero);
+
+          showMenu(
+            context: context,
+            position: RelativeRect.fromLTRB(
+              offset.dx,
+              offset.dy + renderBox.size.height,
+              offset.dx + renderBox.size.width,
+              offset.dy + renderBox.size.height + 50,
+            ),
+            items: const [
+              PopupMenuItem(child: Text("Rename")),
+              PopupMenuItem(child: Text("Move to Folder")),
+            ],
+          );
+        },
+        icon: Icons.more_vert,
+        label: 'More',
+      ),
+      SlidableAction(
+        onPressed: (context) {
+          _deleteAudiobook(context, audiobook);
+        },
+        backgroundColor: Colors.red,
+        foregroundColor: Colors.white,
+        icon: Icons.delete,
+        label: 'Delete',
+      ),
+    ];
+  }
+
+  Future<void> _deleteAudiobook(
+      BuildContext context, AudioBook audiobook) async {
+    // Get ref using context
+    final container = ProviderScope.containerOf(context);
+
     // Check if this is the currently playing book
-    final playerState = ref.read(playerProvider);
+    final playerState = container.read(audioPlayerProvider);
+    await container
+        .read(audiobooksProvider.notifier)
+        .deleteAudiobooks({audiobook.id});
+    if (audiobook.isFolder) {
+      await ImportService.deleteFolder(audiobook.path);
+    } else {
+      await ImportService.deleteFile(audiobook.path);
+    }
     if (playerState.currentBook?.id == audiobook.id) {
       // Clear the current book from the player
-      ref.read(playerProvider.notifier).clearCurrentBook();
+      await container.read(audioPlayerProvider.notifier).clearCurrentBook();
     }
 
     // Proceed with deletion
-    await FileService.deleteFile(audiobook.filePath);
-    ref.read(audioBooksProvider.notifier).removeAudioBook(audiobook.id);
   }
 }

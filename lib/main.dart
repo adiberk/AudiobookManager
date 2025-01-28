@@ -2,12 +2,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'screens/home_screen.dart';
-import 'services/storage_service.dart';
+import 'services/hive_storage_service.dart';
 import 'themes/app_theme.dart';
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized(); // Required for initialization
-  await StorageService.init(); // Initialize storage
+  WidgetsFlutterBinding.ensureInitialized();
+  await HiveStorageService().init();
 
   runApp(
     const ProviderScope(
