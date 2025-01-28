@@ -14,6 +14,8 @@ final importServiceProvider = Provider<ImportService>((ref) {
   return ImportService();
 });
 
+final selectedNavigationIndexProvider = StateProvider<int>((ref) => 0);
+
 // AudioBooks state provider
 final audiobooksProvider =
     StateNotifierProvider<AudioBooksNotifier, List<AudioBook>>((ref) {

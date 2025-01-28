@@ -9,7 +9,7 @@ class PlayerCoverArt extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(65.0),
+      padding: const EdgeInsets.all(50),
       child: AspectRatio(
         aspectRatio: 1,
         child: audiobook.coverImage != null

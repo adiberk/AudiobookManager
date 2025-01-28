@@ -78,9 +78,11 @@ class AudiobookListItem extends ConsumerWidget {
     final uiState = ref.read(playerUIProvider.notifier);
 
     if (currentBook?.id != audiobook.id) {
-      playerNotifier.clearCurrentBook();
-      playerNotifier.setAudiobook(audiobook);
-      playerNotifier.play();
+      playerNotifier.setAudiobook(audiobook).then((_) {
+        playerNotifier.play();
+      });
+
+      // Only toggle UI state if needed
       if (ref.read(playerUIProvider).isExpanded) {
         uiState.setExpanded(false);
       }

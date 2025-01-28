@@ -2,75 +2,32 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../components/audiobook_list.dart';
+import '../components/bottom_navbar.dart';
 import '../components/mini_player.dart';
 import '../providers/providers.dart';
 import 'audiobook_player_screen.dart';
 
-class MainScreen extends ConsumerStatefulWidget {
+class MainScreen extends ConsumerWidget {
   const MainScreen({super.key});
 
   @override
-  ConsumerState<MainScreen> createState() => _MainScreenState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selectedIndex = ref.watch(selectedNavigationIndexProvider);
 
-class _MainScreenState extends ConsumerState<MainScreen> {
-  int _selectedIndex = 0;
-  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
-
-  @override
-  Widget build(BuildContext context) {
     return Scaffold(
       body: Stack(
         children: [
-          Navigator(
-            key: _navigatorKey,
-            onGenerateRoute: (settings) {
-              return MaterialPageRoute(
-                builder: (context) => _buildPage(_selectedIndex),
-              );
-            },
-          ),
+          _buildPage(selectedIndex),
           const AudiobookPlayerScreen(),
-          Positioned(
+          const Positioned(
             left: 0,
             right: 0,
-            bottom: 0, // Position directly above nav bar
-            child: const MiniPlayer(),
+            bottom: 0,
+            child: MiniPlayer(),
           ),
         ],
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings),
-            label: 'Settings',
-          ),
-        ],
-        onTap: (index) {
-          setState(() {
-            _selectedIndex = index;
-          });
-          // Close player if home button is tapped
-          // if (index == 0) {
-          ref.read(playerUIProvider.notifier).setExpanded(false);
-          // }
-          _navigatorKey.currentState?.popUntil((route) => route.isFirst);
-        },
-        backgroundColor: Theme.of(context).canvasColor,
-        selectedItemColor: Theme.of(context).colorScheme.secondary,
-        // unselectedItemColor: Colors.white,
-        type: BottomNavigationBarType.fixed, // or .fixed
-        elevation: 20,
-      ),
+      bottomNavigationBar: BottomNavBar(),
     );
   }
 

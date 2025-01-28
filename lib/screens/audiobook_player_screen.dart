@@ -29,7 +29,7 @@ class AudiobookPlayerScreen extends ConsumerWidget {
     }
 
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
+      duration: const Duration(milliseconds: 500),
       curve: Curves.easeInOut,
       transform: Matrix4.translationValues(0, 0, 0),
       child: DraggableScrollableSheet(
@@ -58,12 +58,11 @@ class AudiobookPlayerScreen extends ConsumerWidget {
                         onTap: () => ref
                             .read(playerUIProvider.notifier)
                             .toggleExpanded()),
-                    const SizedBox(height: 10),
                     PlayerCoverArt(audiobook: audiobook),
                     PlayerMetadata(audiobook: audiobook),
                     const PlayerSeekBar(),
                     const PlayerControls(),
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 60),
                   ],
                 ),
               ),
