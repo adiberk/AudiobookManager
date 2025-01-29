@@ -18,7 +18,18 @@ class MainScreen extends ConsumerWidget {
     return Scaffold(
       body: Stack(
         children: [
-          _buildPage(selectedIndex),
+          Navigator(
+            onGenerateRoute: (settings) {
+              Widget page;
+              if (settings.name == '/') {
+                page = _buildPage(selectedIndex);
+              } else {
+                page = const HomeScreen();
+              }
+
+              return MaterialPageRoute(builder: (_) => page);
+            },
+          ),
           const AudiobookPlayerScreen(),
           const Positioned(
             left: 0,

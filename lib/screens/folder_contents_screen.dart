@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 import '../components/audiobook_list.item.dart';
 import '../components/mini_player.dart';
 import '../components/bottom_navbar.dart';
@@ -22,12 +23,20 @@ class FolderContentsScreen extends ConsumerWidget {
     // Create virtual audiobooks from the chapters
     final chapterBooks = folder.chapters.map((chapter) {
       return AudioBook(
+        id: Uuid().v4(),
         title: chapter.title,
         author: folder.author,
         duration: DurationFormatter.format(chapter.end - chapter.start),
         path: chapter.filePath!,
         coverImage: folder.coverImage,
-        chapters: [chapter],
+        chapters: [
+          Chapter(
+            title: chapter.title,
+            start: Duration.zero,
+            end: chapter.end - chapter.start,
+            filePath: chapter.filePath,
+          )
+        ],
       );
     }).toList();
 
@@ -35,67 +44,47 @@ class FolderContentsScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Text(folder.title),
       ),
-      body: Stack(
-        children: [
-          ReorderableListView.builder(
-            itemCount: chapterBooks.length,
-            onReorderStart: (_) {
-              // Close mini player if it's expanded
-              if (ref.read(playerUIProvider).isExpanded) {
-                ref.read(playerUIProvider.notifier).setExpanded(false);
-              }
-            },
-            onReorder: (oldIndex, newIndex) {
-              if (oldIndex < newIndex) {
-                newIndex -= 1;
-              }
+      body: ReorderableListView.builder(
+        itemCount: chapterBooks.length,
+        onReorderStart: (_) {
+          if (ref.read(playerUIProvider).isExpanded) {
+            ref.read(playerUIProvider.notifier).setExpanded(false);
+          }
+        },
+        onReorder: (oldIndex, newIndex) {
+          if (oldIndex < newIndex) {
+            newIndex -= 1;
+          }
 
-              // Update the folder's chapters order
-              final updatedChapters = [...folder.chapters];
-              final chapter = updatedChapters.removeAt(oldIndex);
-              updatedChapters.insert(newIndex, chapter);
+          final updatedChapters = [...folder.chapters];
+          final chapter = updatedChapters.removeAt(oldIndex);
+          updatedChapters.insert(newIndex, chapter);
 
-              // Create updated audiobook
-              final updatedBook = folder.copyWith(chapters: updatedChapters);
+          final updatedBook = folder.copyWith(chapters: updatedChapters);
+          ref.read(audiobooksProvider.notifier).updateAudiobook(updatedBook);
+        },
+        itemBuilder: (context, index) {
+          return KeyedSubtree(
+            key: ValueKey(chapterBooks[index].id),
+            child: AudiobookListItem(
+              audiobook: chapterBooks[index], // Pass the parent folder
+              onTap: (_) {
+                final playerNotifier = ref.read(audioPlayerProvider.notifier);
+                final uiState = ref.read(playerUIProvider.notifier);
 
-              // Update in provider
-              ref
-                  .read(audiobooksProvider.notifier)
-                  .updateAudiobook(updatedBook);
-            },
-            itemBuilder: (context, index) {
-              return KeyedSubtree(
-                key: ValueKey(chapterBooks[index].id),
-                child: AudiobookListItem(
-                  audiobook: chapterBooks[index],
-                  onTap: (audiobook) {
-                    final playerNotifier =
-                        ref.read(audioPlayerProvider.notifier);
-                    final uiState = ref.read(playerUIProvider.notifier);
+                playerNotifier.setAudiobook(chapterBooks[index]).then((_) {
+                  // playerNotifier.seekToChapter(index);
+                  playerNotifier.play();
+                });
 
-                    playerNotifier.setAudiobook(folder).then((_) {
-                      playerNotifier.seekToChapter(index);
-                      playerNotifier.play();
-                    });
-
-                    if (ref.read(playerUIProvider).isExpanded) {
-                      uiState.setExpanded(false);
-                    }
-                  },
-                ),
-              );
-            },
-          ),
-          const AudiobookPlayerScreen(),
-          const Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: MiniPlayer(),
-          ),
-        ],
+                if (ref.read(playerUIProvider).isExpanded) {
+                  uiState.setExpanded(false);
+                }
+              },
+            ),
+          );
+        },
       ),
-      bottomNavigationBar: BottomNavBar(),
     );
   }
 }
