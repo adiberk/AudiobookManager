@@ -29,7 +29,7 @@ class AudiobookPlayerScreen extends ConsumerWidget {
     }
 
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 500),
+      duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
       transform: Matrix4.translationValues(0, 0, 0),
       child: DraggableScrollableSheet(

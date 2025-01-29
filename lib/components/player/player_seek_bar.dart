@@ -18,17 +18,17 @@ class PlayerSeekBar extends ConsumerWidget {
     }
     final currentChapter = audiobook.isJoinedVolume
         ? audiobook.chapters[currentChapterIndex]
-        : ref.watch(currentChapterProvider(audioPlayerState.position));
+        : ref.watch(currentChapterProvider(audioPlayer.position));
     Duration chapterPosition;
     Duration chapterDuration;
 
     if (audiobook.isJoinedVolume) {
       // For joined volumes, we want the position relative to the current chapter
-      chapterPosition = audioPlayerState.position;
+      chapterPosition = audioPlayer.position;
       chapterDuration = currentChapter.end - currentChapter.start;
     } else {
       // For single files, calculate relative to chapter start
-      chapterPosition = audioPlayerState.position - currentChapter.start;
+      chapterPosition = audioPlayer.position - currentChapter.start;
       chapterDuration = currentChapter.end - currentChapter.start;
     }
 

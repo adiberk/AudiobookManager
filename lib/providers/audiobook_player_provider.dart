@@ -2,101 +2,118 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
 import '../models/audiobook.dart';
 import '../services/import_service.dart';
+import 'audiobook_provider.dart';
 
 class AudioPlayerState {
-  final Duration position;
   final Duration duration;
-  final PlayerState playerState;
   final bool isPlaying;
-  final int? currentIndex;
-  final AudioBook? currentBook; // Added this field
+  final PlayerState? playerState;
+  final AudioBook? currentBook;
+  final AudioPlayer? player;
+  final ConcatenatingAudioSource? playlist;
 
   AudioPlayerState({
-    required this.position,
-    required this.duration,
-    required this.playerState,
-    required this.isPlaying,
-    this.currentIndex,
-    this.currentBook, // Added this parameter
+    this.duration = Duration.zero,
+    this.isPlaying = false,
+    this.playerState,
+    this.currentBook,
+    this.player,
+    this.playlist,
   });
 
   AudioPlayerState copyWith({
-    Duration? position,
     Duration? duration,
     PlayerState? playerState,
     bool? isPlaying,
-    int? currentIndex,
-    AudioBook? currentBook, // Added this parameter
+    AudioBook? currentBook,
+    AudioPlayer? player,
+    ConcatenatingAudioSource? playlist,
   }) {
     return AudioPlayerState(
-      position: position ?? this.position,
       duration: duration ?? this.duration,
       playerState: playerState ?? this.playerState,
       isPlaying: isPlaying ?? this.isPlaying,
-      currentIndex: currentIndex ?? this.currentIndex,
-      currentBook: currentBook ?? this.currentBook, // Added this field
+      currentBook: currentBook ?? this.currentBook,
+      player: player ?? this.player,
+      playlist: playlist ?? this.playlist,
     );
   }
 }
 
 class AudioPlayerNotifier extends StateNotifier<AudioPlayerState> {
-  AudioPlayer? _player;
-  AudioBook? _currentBook;
-  ConcatenatingAudioSource? _playlist;
+  final Ref ref; // Add ref to access providers
 
-  AudioPlayerNotifier()
-      : super(AudioPlayerState(
-          position: Duration.zero,
-          duration: Duration.zero,
-          playerState: PlayerState(false, ProcessingState.idle),
-          isPlaying: false,
-        )) {
+  AudioPlayerNotifier(this.ref) : super(AudioPlayerState()) {
     _initializePlayer();
   }
 
   Future<void> _initializePlayer() async {
-    _player = AudioPlayer();
+    final player = AudioPlayer();
+    state = state.copyWith(player: player);
     _initializeListeners();
   }
 
   void _initializeListeners() {
-    _player?.positionStream.listen((position) {
-      state = state.copyWith(position: position);
+    final player = state.player;
+    if (player == null) return;
+
+    // Update position listener to save progress
+    player.positionStream.listen((position) {
+      // Save progress if we have a current book
+      if (state.currentBook != null) {
+        final updatedBook = state.currentBook!.copyWith(
+          currentPosition: position,
+          currentChapterIndex: state.player!.currentIndex,
+        );
+
+        // Update the book in storage
+        ref.read(audiobooksProvider.notifier).updateAudiobook(updatedBook);
+
+        // Update current book in player state
+        state = state.copyWith(currentBook: updatedBook);
+      }
     });
 
-    _player?.playerStateStream.listen((playerState) {
+    player.playerStateStream.listen((playerState) {
       state = state.copyWith(
         playerState: playerState,
         isPlaying: playerState.playing,
       );
     });
 
-    _player?.durationStream.listen((duration) {
+    player.durationStream.listen((duration) {
       state = state.copyWith(duration: duration ?? Duration.zero);
     });
 
-    _player?.currentIndexStream.listen((index) {
-      state = state.copyWith(currentIndex: index);
+    player.currentIndexStream.listen((index) {
+      if (index != null && state.currentBook != null) {
+        state = state.copyWith(
+          currentBook: state.currentBook!.copyWith(currentChapterIndex: index),
+        );
+      }
     });
   }
 
   Future<void> setAudiobook(AudioBook book) async {
     try {
-      // Ensure player is initialized
-      if (_player == null) {
+      if (state.player == null) {
         await _initializePlayer();
       }
 
-      if (_currentBook?.id != book.id) {
-        final wasPlaying = _player?.playing ?? false;
-        if (wasPlaying) await _player?.stop();
-        state = state.copyWith(currentBook: book);
+      if (state.currentBook?.id != book.id) {
+        final wasPlaying = state.isPlaying;
+        if (wasPlaying) await state.player?.stop();
 
-        // Resolve the full path
+        state = state.copyWith(
+          currentBook: book,
+          isPlaying: false,
+          playerState: PlayerState(false, ProcessingState.idle),
+        );
+
         final fullPath = await ImportService.resolveFullPath(book.path);
 
         if (book.isFolder && book.isJoinedVolume) {
-          _playlist = ConcatenatingAudioSource(
+          final playlist = ConcatenatingAudioSource(
             children: await Future.wait(
               book.chapters.map((chapter) async {
                 final fullChapterPath =
@@ -105,21 +122,25 @@ class AudioPlayerNotifier extends StateNotifier<AudioPlayerState> {
               }),
             ),
           );
-          await _player?.setAudioSource(_playlist!);
+
+          state = state.copyWith(playlist: playlist);
+          await state.player?.setAudioSource(playlist);
+
           if (book.currentChapterIndex > 0) {
-            await _player?.seek(Duration.zero, index: book.currentChapterIndex);
+            await state.player
+                ?.seek(Duration.zero, index: book.currentChapterIndex);
           }
         } else {
-          _playlist = null;
-          await _player?.setFilePath(fullPath);
+          state = state.copyWith(playlist: null);
+          await state.player?.setFilePath(fullPath);
         }
 
         if (book.currentPosition > Duration.zero) {
-          await _player?.seek(book.currentPosition);
+          await state.player?.seek(book.currentPosition);
         }
 
         if (wasPlaying) {
-          await _player?.play();
+          await state.player?.play();
         }
       }
     } catch (e) {
@@ -127,79 +148,74 @@ class AudioPlayerNotifier extends StateNotifier<AudioPlayerState> {
     }
   }
 
-  Future<void> play() async => await _player?.play();
-  Future<void> pause() async => await _player?.pause();
+  // Return player position
+  Duration get position => state.player?.position ?? Duration.zero;
+  // return current book
+  AudioBook? get currentBook => state.currentBook;
+  // Player control methods
+  Future<void> play() async => await state.player?.play();
+  Future<void> pause() async => await state.player?.pause();
   Future<void> togglePlayPause() async {
-    if (_player?.playing ?? false) {
-      await _player?.pause();
+    if (state.isPlaying) {
+      await pause();
     } else {
-      await _player?.play();
+      await play();
     }
   }
 
-  Future<void> seek(Duration position) async => await _player?.seek(position);
+  Future<void> seek(Duration position) async =>
+      await state.player?.seek(position);
 
   Future<void> skipForward() async {
-    if (_player != null) {
-      final newPosition = _player!.position + const Duration(seconds: 30);
-      await _player!.seek(newPosition);
+    if (state.player != null) {
+      final newPosition = state.player!.position + const Duration(seconds: 30);
+      await seek(newPosition);
     }
   }
 
   Future<void> skipBackward() async {
-    if (_player != null) {
-      final newPosition = _player!.position - const Duration(seconds: 30);
-      await _player?.seek(newPosition);
+    if (state.player != null) {
+      final newPosition = state.player!.position - const Duration(seconds: 30);
+      await seek(newPosition);
     }
   }
 
   Future<void> skipToNext() async {
-    if (_playlist != null && (_player?.hasNext ?? false)) {
-      await _player?.seekToNext();
+    if (state.playlist != null && (state.player?.hasNext ?? false)) {
+      await state.player?.seekToNext();
     }
   }
 
   Future<void> skipToPrevious() async {
-    if (_playlist != null && (_player?.hasPrevious ?? false)) {
-      await _player?.seekToPrevious();
+    if (state.playlist != null && (state.player?.hasPrevious ?? false)) {
+      await state.player?.seekToPrevious();
     }
   }
 
   Future<void> seekToChapter(int chapterIndex) async {
-    if (_currentBook?.isJoinedVolume == true) {
-      if (_playlist != null &&
-          chapterIndex >= 0 &&
-          chapterIndex < _playlist!.length) {
-        await _player?.seek(Duration.zero, index: chapterIndex);
+    if ((state.currentBook?.isFolder ?? false) &&
+        state.currentBook?.isJoinedVolume == true) {
+      if (chapterIndex >= 0 &&
+          chapterIndex < (state.currentBook?.chapters.length ?? 0)) {
+        await state.player?.seek(Duration.zero, index: chapterIndex);
       }
     }
   }
 
   Future<void> clearCurrentBook() async {
     try {
-      if (_player?.playing ?? false) {
-        await _player?.stop();
+      if (state.isPlaying) {
+        await state.player?.stop();
       }
-      _currentBook = null;
-      _playlist = null;
-      state = AudioPlayerState(
-        position: Duration.zero,
-        duration: Duration.zero,
-        playerState: PlayerState(false, ProcessingState.idle),
-        isPlaying: false,
-      );
+      state = AudioPlayerState();
     } catch (e) {
       print('Error clearing current book: $e');
     }
   }
 
-  AudioBook? get currentBook => state.currentBook;
-  bool get hasNext => _player?.hasNext ?? false;
-  bool get hasPrevious => _player?.hasPrevious ?? false;
-
   @override
   void dispose() {
-    _player?.dispose();
+    state.player?.dispose();
     super.dispose();
   }
 }

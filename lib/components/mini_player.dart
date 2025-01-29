@@ -6,6 +6,8 @@ import 'package:audiobook_manager/providers/providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../models/audiobook.dart';
+
 class MiniPlayer extends ConsumerWidget {
   const MiniPlayer({super.key});
 
@@ -14,6 +16,15 @@ class MiniPlayer extends ConsumerWidget {
     final playerState = ref.watch(audioPlayerProvider);
     final uiState = ref.watch(playerUIProvider);
     final book = playerState.currentBook;
+    final currentChapterIndex = ref.watch(currentChapterIndexProvider);
+    final audioPlayerState = ref.watch(audioPlayerProvider.notifier);
+
+    Chapter? currentChapter = null;
+    if (book != null) {
+      currentChapter = book.isJoinedVolume == true
+          ? book.chapters[currentChapterIndex]
+          : ref.watch(currentChapterProvider(audioPlayerState.position));
+    }
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
@@ -53,31 +64,62 @@ class MiniPlayer extends ConsumerWidget {
                 children: [
                   if (book?.coverImage != null)
                     Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Image.memory(
-                        book?.coverImage! ?? Uint8List(0),
-                        width: 44,
-                        height: 44,
-                        fit: BoxFit.cover,
+                      padding: const EdgeInsets.all(7),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: Image.memory(
+                          book?.coverImage! ?? Uint8List(0),
+                          width: 48,
+                          height: 48,
+                          fit: BoxFit.cover,
+                        ),
                       ),
                     ),
                   Expanded(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        ConditionalMarquee(
-                          text: book?.title ?? '',
-                          style: const TextStyle(fontSize: 14),
-                          maxWidth: 250,
-                          velocity: 20,
-                          pauseAfterRound: const Duration(seconds: 0),
-                        ),
-                        Text(
-                          book?.author ?? '',
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          ConditionalMarquee(
+                            text: book?.title ?? '',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            maxWidth: 280,
+                            velocity: 20,
+                            pauseAfterRound: const Duration(seconds: 1),
+                          ),
+                          Text(
+                            book?.author ?? '',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSecondary
+                                  .withOpacity(0.8),
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          if (currentChapter != null &&
+                              book != null &&
+                              book.chapters.length > 1) ...[
+                            Text(
+                              currentChapter.title,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSecondary
+                                    .withOpacity(0.7),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
                   ),
                   IconButton(
@@ -88,7 +130,7 @@ class MiniPlayer extends ConsumerWidget {
                     onPressed: () {
                       ref.read(audioPlayerProvider.notifier).togglePlayPause();
                     },
-                  ),
+                  )
                 ],
               ),
             ),

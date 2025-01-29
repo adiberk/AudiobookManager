@@ -128,7 +128,8 @@ class ImportService {
               title: metadata['title'] ?? path.basename(entity.path),
               start: totalDuration,
               end: totalDuration + fileDuration,
-              filePath: entity.path,
+              filePath: path.join(_processedFolderName,
+                  path.basename(newFolderPath), path.basename(entity.path)),
             );
 
             folderChapters.add(chapter);
@@ -138,10 +139,11 @@ class ImportService {
 
         if (folderChapters.isNotEmpty) {
           return AudioBook(
-            title: path.basename(newFolderPath),
+            title: path.basename(folderPath!),
             author: firstAuthor ?? 'Unknown Author',
             duration: DurationFormatter.format(totalDuration),
-            path: newFolderPath,
+            path:
+                path.join(_processedFolderName, path.basename(newFolderPath!)),
             coverImage: firstCoverImage,
             chapters: folderChapters,
             isFolder: true,
@@ -175,25 +177,6 @@ class ImportService {
       return null;
     }
   }
-
-  //   static Future<File?> processAudioFile(File sourceFile) async {
-  //   try {
-  //     final processedDir = await _processedDir;
-  //     final String newFileName =
-  //         '${const Uuid().v4()}${path.extension(sourceFile.path)}';
-  //     final String destinationPath = path.join(processedDir.path, newFileName);
-
-  //     // Copy file to processed directory
-  //     final newFile = await sourceFile.copy(destinationPath);
-
-  //     // delete the current file
-  //     await sourceFile.delete();
-  //     return newFile;
-  //   } catch (e) {
-  //     print('Error processing file: $e');
-  //     return null;
-  //   }
-  // }
 
   static Future<String?> processFolder(Directory sourceFolder) async {
     try {

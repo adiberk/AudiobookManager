@@ -7,7 +7,7 @@ class PlayerControls extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final audioPlayerState = ref.watch(audioPlayerProvider);
+    final audioPlayerState = ref.watch(audioPlayerProvider.notifier);
     final currentChapterIndex = ref.watch(currentChapterIndexProvider);
     final audiobook = audioPlayerState.currentBook;
     if (audiobook == null) {
