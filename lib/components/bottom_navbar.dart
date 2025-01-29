@@ -1,3 +1,4 @@
+import 'package:audiobook_manager/providers/main_navigation_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -6,9 +7,9 @@ import '../providers/providers.dart';
 class BottomNavBar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final selectedIndex = ref.watch(selectedNavigationIndexProvider);
+    final navigationState = ref.watch(selectedNavigationProvider);
     return BottomNavigationBar(
-      currentIndex: selectedIndex,
+      currentIndex: navigationState.index,
       items: const [
         BottomNavigationBarItem(
           icon: Icon(Icons.home),
@@ -25,7 +26,13 @@ class BottomNavBar extends ConsumerWidget {
       ],
       onTap: (index) {
         // Update the selected index using the provider
-        ref.read(selectedNavigationIndexProvider.notifier).state = index;
+        final navigationNotifier =
+            ref.read(selectedNavigationProvider.notifier);
+        navigationNotifier.updateIndex(index);
+        if (index == 0) {
+          navigationNotifier.setNavigatingFolderContents(false);
+        }
+
         // Close player when switching tabs
         ref.read(playerUIProvider.notifier).setExpanded(false);
       },

@@ -2,28 +2,57 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import '../components/audiobook_list.item.dart';
-import '../components/mini_player.dart';
-import '../components/bottom_navbar.dart';
 import '../providers/audiobook_provider.dart';
-import '../screens/audiobook_player_screen.dart';
+import '../providers/main_navigation_provider.dart';
 import '../models/audiobook.dart';
 import '../providers/providers.dart';
 import '../utils/duration_formatter.dart';
 
-class FolderContentsScreen extends ConsumerWidget {
-  final AudioBook folder;
+// ... existing imports ...
+
+class FolderContentsScreen extends ConsumerStatefulWidget {
+  final String folderId;
 
   const FolderContentsScreen({
     super.key,
-    required this.folder,
+    required this.folderId,
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    // Create virtual audiobooks from the chapters
-    final chapterBooks = folder.chapters.map((chapter) {
+  ConsumerState<FolderContentsScreen> createState() =>
+      _FolderContentsScreenState();
+}
+
+class _FolderContentsScreenState extends ConsumerState<FolderContentsScreen> {
+  late List<Chapter> localChapters;
+
+  @override
+  void initState() {
+    super.initState();
+    final folder = ref
+        .read(audiobooksProvider)
+        .firstWhere((book) => book.id == widget.folderId);
+    localChapters = [...folder.chapters];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final audiobooks = ref.watch(audiobooksProvider);
+    final folder = audiobooks.firstWhere((book) => book.id == widget.folderId);
+
+    ref.listen<SelectedNavigationState>(
+      selectedNavigationProvider,
+      (previous, next) {
+        if ((previous?.isNavigatingFolderContents ?? false) &&
+            !next.isNavigatingFolderContents) {
+          Navigator.of(context).pop();
+        }
+      },
+    );
+
+    final chapterBooks = localChapters.map((chapter) {
       return AudioBook(
-        id: Uuid().v4(),
+        id: chapter.filePath ?? Uuid().v4(),
         title: chapter.title,
         author: folder.author,
         duration: DurationFormatter.format(chapter.end - chapter.start),
@@ -56,24 +85,25 @@ class FolderContentsScreen extends ConsumerWidget {
             newIndex -= 1;
           }
 
-          final updatedChapters = [...folder.chapters];
-          final chapter = updatedChapters.removeAt(oldIndex);
-          updatedChapters.insert(newIndex, chapter);
+          setState(() {
+            final chapter = localChapters.removeAt(oldIndex);
+            localChapters.insert(newIndex, chapter);
+          });
 
-          final updatedBook = folder.copyWith(chapters: updatedChapters);
+          // Update the persistent state after the animation
+          final updatedBook = folder.copyWith(chapters: localChapters);
           ref.read(audiobooksProvider.notifier).updateAudiobook(updatedBook);
         },
         itemBuilder: (context, index) {
           return KeyedSubtree(
             key: ValueKey(chapterBooks[index].id),
             child: AudiobookListItem(
-              audiobook: chapterBooks[index], // Pass the parent folder
+              audiobook: chapterBooks[index],
               onTap: (_) {
                 final playerNotifier = ref.read(audioPlayerProvider.notifier);
                 final uiState = ref.read(playerUIProvider.notifier);
 
                 playerNotifier.setAudiobook(chapterBooks[index]).then((_) {
-                  // playerNotifier.seekToChapter(index);
                   playerNotifier.play();
                 });
 

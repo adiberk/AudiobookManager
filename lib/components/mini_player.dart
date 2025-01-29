@@ -2,11 +2,11 @@
 import 'dart:typed_data';
 
 import 'package:audiobook_manager/components/conditional_marqee_text.dart';
+import 'package:audiobook_manager/providers/main_navigation_provider.dart';
 import 'package:audiobook_manager/providers/providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../models/audiobook.dart';
+import '../providers/chapter_state_provider.dart';
 
 class MiniPlayer extends ConsumerWidget {
   const MiniPlayer({super.key});
@@ -15,26 +15,19 @@ class MiniPlayer extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final playerState = ref.watch(audioPlayerProvider);
     final uiState = ref.watch(playerUIProvider);
+    final chapterState = ref.watch(chapterStateProvider);
+    final navigationState = ref.watch(selectedNavigationProvider);
     final book = playerState.currentBook;
-    final currentChapterIndex = ref.watch(currentChapterIndexProvider);
-    final audioPlayerState = ref.watch(audioPlayerProvider.notifier);
-
-    Chapter? currentChapter = null;
-    if (book != null) {
-      currentChapter = book.isJoinedVolume == true
-          ? book.chapters[currentChapterIndex]
-          : ref.watch(currentChapterProvider(audioPlayerState.position));
-    }
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       transform: Matrix4.translationValues(
         0,
-        uiState.isExpanded ? 60 : 0,
+        uiState.isExpanded || navigationState.index == 2 ? 60 : 0,
         0,
       ),
       child: Visibility(
-        visible: book != null,
+        visible: book != null && navigationState.index != 2,
         maintainState: true,
         maintainAnimation: true,
         maintainSize: true,
@@ -103,21 +96,8 @@ class MiniPlayer extends ConsumerWidget {
                             ),
                             overflow: TextOverflow.ellipsis,
                           ),
-                          if (currentChapter != null &&
-                              book != null &&
-                              book.chapters.length > 1) ...[
-                            Text(
-                              currentChapter.title,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSecondary
-                                    .withOpacity(0.7),
-                              ),
-                            ),
-                          ],
+                          if ((book?.chapters.length ?? 0) > 1)
+                            Text(chapterState.currentChapter.title),
                         ],
                       ),
                     ),

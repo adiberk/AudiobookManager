@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/audiobook.dart';
-import '../../providers/providers.dart';
+import '../../providers/chapter_state_provider.dart';
 
 class PlayerMetadata extends ConsumerWidget {
   final AudioBook audiobook;
@@ -10,12 +10,7 @@ class PlayerMetadata extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final currentChapterIndex = ref.watch(currentChapterIndexProvider);
-    final audioPlayerState = ref.watch(audioPlayerProvider.notifier);
-
-    final currentChapter = audiobook.isJoinedVolume
-        ? audiobook.chapters[currentChapterIndex]
-        : ref.watch(currentChapterProvider(audioPlayerState.position));
+    final chapterState = ref.watch(chapterStateProvider);
 
     return Column(
       children: [
@@ -31,7 +26,7 @@ class PlayerMetadata extends ConsumerWidget {
         ),
         const SizedBox(height: 16),
         Text(
-          'Chapter: ${currentChapter.title}',
+          chapterState.currentChapter.title,
           style: Theme.of(context).textTheme.bodySmall,
         ),
       ],

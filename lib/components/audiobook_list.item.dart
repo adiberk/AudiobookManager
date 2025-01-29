@@ -1,8 +1,11 @@
 import 'package:audiobook_manager/providers/audiobook_provider.dart';
+import 'package:audiobook_manager/providers/main_navigation_provider.dart';
 import 'package:audiobook_manager/providers/providers.dart';
+import 'package:audiobook_manager/utils/duration_formatter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
+import 'package:uuid/uuid.dart';
 
 import '../models/audiobook.dart';
 import '../screens/folder_contents_screen.dart';
@@ -94,6 +97,37 @@ class AudiobookListItem extends ConsumerWidget {
                       .updateAudiobook(updatedBook);
                   break;
                 case 'unjoin':
+                  final audioState = ref.read(audioPlayerProvider);
+                  final audioNotifier = ref.read(audioPlayerProvider.notifier);
+                  if (audioState.currentBook?.id == audiobook.id) {
+                    audioNotifier.clearCurrentBook();
+                    ref
+                        .read(audioPlayerProvider.notifier)
+                        .setAudiobook(AudioBook(
+                          id: Uuid().v4(),
+                          duration: DurationFormatter.format(audiobook
+                                  .chapters[audiobook.currentChapterIndex].end -
+                              audiobook.chapters[audiobook.currentChapterIndex]
+                                  .start),
+                          title: audiobook
+                              .chapters[audiobook.currentChapterIndex].title,
+                          author: audiobook.author,
+                          path: audiobook
+                                  .chapters[audiobook.currentChapterIndex]
+                                  .filePath ??
+                              '',
+                          isFolder: false,
+                          isJoinedVolume: false,
+                          chapters: [
+                            audiobook.chapters[audiobook.currentChapterIndex]
+                          ],
+                          coverImage: audiobook.coverImage,
+                        ))
+                        .then((_) {
+                      ref.read(playerUIProvider.notifier).setExpanded(false);
+                      audioNotifier.play();
+                    });
+                  }
                   final updatedBook = audiobook.copyWith(isJoinedVolume: false);
                   ref
                       .read(audiobooksProvider.notifier)
@@ -148,10 +182,14 @@ class AudiobookListItem extends ConsumerWidget {
       BuildContext context, AudioBook? currentBook, WidgetRef ref) {
     // logic is that if we are clikcing on a folder, we should navigate to the folder contents
     if (audiobook.isFolder && !audiobook.isJoinedVolume) {
+      // ref.read(selectedNavigationIndexProvider.notifier).state = 100;
+      ref
+          .read(selectedNavigationProvider.notifier)
+          .setNavigatingFolderContents(true);
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => FolderContentsScreen(folder: audiobook),
+          builder: (context) => FolderContentsScreen(folderId: audiobook.id),
         ),
       );
     } else {

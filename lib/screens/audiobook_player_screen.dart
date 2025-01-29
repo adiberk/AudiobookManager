@@ -62,7 +62,7 @@ class AudiobookPlayerScreen extends ConsumerWidget {
                     PlayerMetadata(audiobook: audiobook),
                     const PlayerSeekBar(),
                     const PlayerControls(),
-                    const SizedBox(height: 60),
+                    // const SizedBox(height: 1),
                   ],
                 ),
               ),

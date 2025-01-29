@@ -11,6 +11,7 @@ class AudioPlayerState {
   final AudioBook? currentBook;
   final AudioPlayer? player;
   final ConcatenatingAudioSource? playlist;
+  final bool isLoading; // New field to track loading state
 
   AudioPlayerState({
     this.duration = Duration.zero,
@@ -19,6 +20,7 @@ class AudioPlayerState {
     this.currentBook,
     this.player,
     this.playlist,
+    this.isLoading = false,
   });
 
   AudioPlayerState copyWith({
@@ -28,6 +30,7 @@ class AudioPlayerState {
     AudioBook? currentBook,
     AudioPlayer? player,
     ConcatenatingAudioSource? playlist,
+    bool? isLoading,
   }) {
     return AudioPlayerState(
       duration: duration ?? this.duration,
@@ -36,12 +39,13 @@ class AudioPlayerState {
       currentBook: currentBook ?? this.currentBook,
       player: player ?? this.player,
       playlist: playlist ?? this.playlist,
+      isLoading: isLoading ?? this.isLoading,
     );
   }
 }
 
 class AudioPlayerNotifier extends StateNotifier<AudioPlayerState> {
-  final Ref ref; // Add ref to access providers
+  final Ref ref;
 
   AudioPlayerNotifier(this.ref) : super(AudioPlayerState()) {
     _initializePlayer();
@@ -57,36 +61,34 @@ class AudioPlayerNotifier extends StateNotifier<AudioPlayerState> {
     final player = state.player;
     if (player == null) return;
 
-    // Update position listener to save progress
     player.positionStream.listen((position) {
-      // Save progress if we have a current book
-      if (state.currentBook != null) {
+      if (!state.isLoading && state.currentBook != null) {
         final updatedBook = state.currentBook!.copyWith(
           currentPosition: position,
-          currentChapterIndex: state.player!.currentIndex,
+          currentChapterIndex: state.player!.currentIndex ?? 0,
         );
-
-        // Update the book in storage
         ref.read(audiobooksProvider.notifier).updateAudiobook(updatedBook);
-
-        // Update current book in player state
         state = state.copyWith(currentBook: updatedBook);
       }
     });
 
     player.playerStateStream.listen((playerState) {
-      state = state.copyWith(
-        playerState: playerState,
-        isPlaying: playerState.playing,
-      );
+      if (!state.isLoading) {
+        state = state.copyWith(
+          playerState: playerState,
+          isPlaying: playerState.playing,
+        );
+      }
     });
 
     player.durationStream.listen((duration) {
-      state = state.copyWith(duration: duration ?? Duration.zero);
+      if (!state.isLoading) {
+        state = state.copyWith(duration: duration ?? Duration.zero);
+      }
     });
 
     player.currentIndexStream.listen((index) {
-      if (index != null && state.currentBook != null) {
+      if (!state.isLoading && index != null && state.currentBook != null) {
         state = state.copyWith(
           currentBook: state.currentBook!.copyWith(currentChapterIndex: index),
         );
@@ -95,56 +97,70 @@ class AudioPlayerNotifier extends StateNotifier<AudioPlayerState> {
   }
 
   Future<void> setAudiobook(AudioBook book) async {
+    if (state.isLoading) return; // Prevent concurrent loading
+
     try {
+      state = state.copyWith(isLoading: true);
+
       if (state.player == null) {
         await _initializePlayer();
       }
 
-      if (state.currentBook?.id != book.id) {
-        final wasPlaying = state.isPlaying;
-        if (wasPlaying) await state.player?.stop();
+      // Stop current playback before switching
+      if (state.isPlaying) {
+        await state.player?.stop();
+      }
 
-        state = state.copyWith(
-          currentBook: book,
-          isPlaying: false,
-          playerState: PlayerState(false, ProcessingState.idle),
+      // Clear current state
+      state = state.copyWith(
+        currentBook: null,
+        isPlaying: false,
+        playerState: PlayerState(false, ProcessingState.idle),
+        playlist: null,
+      );
+
+      final fullPath = await ImportService.resolveFullPath(book.path);
+
+      if (book.isFolder && book.isJoinedVolume) {
+        final playlist = ConcatenatingAudioSource(
+          children: await Future.wait(
+            book.chapters.map((chapter) async {
+              final fullChapterPath =
+                  await ImportService.resolveFullPath(chapter.filePath!);
+              return AudioSource.file(fullChapterPath);
+            }),
+          ),
         );
 
-        final fullPath = await ImportService.resolveFullPath(book.path);
+        await state.player?.setAudioSource(playlist);
+        state = state.copyWith(
+          playlist: playlist,
+          currentBook: book,
+        );
 
-        if (book.isFolder && book.isJoinedVolume) {
-          final playlist = ConcatenatingAudioSource(
-            children: await Future.wait(
-              book.chapters.map((chapter) async {
-                final fullChapterPath =
-                    await ImportService.resolveFullPath(chapter.filePath!);
-                return AudioSource.file(fullChapterPath);
-              }),
-            ),
-          );
-
-          state = state.copyWith(playlist: playlist);
-          await state.player?.setAudioSource(playlist);
-
-          if (book.currentChapterIndex > 0) {
-            await state.player
-                ?.seek(Duration.zero, index: book.currentChapterIndex);
-          }
-        } else {
-          state = state.copyWith(playlist: null);
-          await state.player?.setFilePath(fullPath);
+        if (book.currentChapterIndex > 0) {
+          await state.player
+              ?.seek(Duration.zero, index: book.currentChapterIndex);
         }
+      } else {
+        await state.player?.setFilePath(fullPath);
+        state = state.copyWith(currentBook: book);
+      }
 
-        if (book.currentPosition > Duration.zero) {
-          await state.player?.seek(book.currentPosition);
-        }
-
-        if (wasPlaying) {
-          await state.player?.play();
-        }
+      if (book.currentPosition > Duration.zero) {
+        await state.player?.seek(book.currentPosition);
       }
     } catch (e) {
       print('Error setting audiobook: $e');
+      // Reset state on error
+      state = state.copyWith(
+        currentBook: null,
+        isPlaying: false,
+        playerState: PlayerState(false, ProcessingState.idle),
+        playlist: null,
+      );
+    } finally {
+      state = state.copyWith(isLoading: false);
     }
   }
 
@@ -207,6 +223,7 @@ class AudioPlayerNotifier extends StateNotifier<AudioPlayerState> {
       if (state.isPlaying) {
         await state.player?.stop();
       }
+      state.player?.dispose();
       state = AudioPlayerState();
     } catch (e) {
       print('Error clearing current book: $e');

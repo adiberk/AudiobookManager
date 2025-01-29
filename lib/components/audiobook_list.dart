@@ -1,10 +1,7 @@
-import 'package:audiobook_manager/providers/providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_slidable/flutter_slidable.dart';
 
 import '../models/audiobook.dart';
-import '../services/import_service.dart';
 import 'audiobook_list.item.dart';
 
 class AudiobookList extends ConsumerWidget {

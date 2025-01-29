@@ -1,5 +1,6 @@
 import 'package:hive_flutter/hive_flutter.dart';
 import '../models/audiobook.dart';
+import '../models/user_settings.dart';
 
 class HiveStorageService {
   static const String _audiobooksBoxName = 'audiobooks';
@@ -87,5 +88,27 @@ class HiveStorageService {
 
   Future<void> clear() async {
     await _audiobooksBox.clear();
+  }
+
+  // Save User Settings
+  Future<void> saveUserSettings(UserSettings settings) async {
+    await _audiobooksBox.put('user_settings', settings.toJson());
+  }
+
+  // Load User Settings
+  Future<UserSettings> loadUserSettings() async {
+    final data = _audiobooksBox.get('user_settings');
+    if (data == null) {
+      final newSettings = UserSettings();
+      await saveUserSettings(newSettings);
+      return newSettings;
+    }
+    final Map<String, dynamic> convertedData = _convertMapToStringDynamic(data);
+    return UserSettings.fromJson(convertedData);
+  }
+
+  // Update User Settings
+  Future<void> updateUserSettings(UserSettings settings) async {
+    await saveUserSettings(settings);
   }
 }

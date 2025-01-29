@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:audiobook_manager/providers/main_navigation_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../components/audiobook_list.dart';
@@ -7,29 +8,40 @@ import '../components/mini_player.dart';
 import '../providers/audiobook_provider.dart';
 import '../providers/providers.dart';
 import 'audiobook_player_screen.dart';
+import 'settings_screen.dart';
 
 class MainScreen extends ConsumerWidget {
   const MainScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final selectedIndex = ref.watch(selectedNavigationIndexProvider);
+    final navigationState = ref.watch(selectedNavigationProvider);
 
     return Scaffold(
       body: Stack(
         children: [
-          Navigator(
-            onGenerateRoute: (settings) {
-              Widget page;
-              if (settings.name == '/') {
-                page = _buildPage(selectedIndex);
-              } else {
-                page = const HomeScreen();
-              }
-
-              return MaterialPageRoute(builder: (_) => page);
-            },
+          // Main content using IndexedStack
+          IndexedStack(
+            index: navigationState.index,
+            children: [
+              Navigator(
+                onGenerateRoute: (settings) {
+                  return MaterialPageRoute(
+                    builder: (_) => const HomeScreen(),
+                  );
+                },
+              ),
+              const Center(child: Text('Profile Page')),
+              Navigator(
+                onGenerateRoute: (settings) {
+                  return MaterialPageRoute(
+                    builder: (_) => const SettingsScreen(),
+                  );
+                },
+              ),
+            ],
           ),
+          // Player UI layers
           const AudiobookPlayerScreen(),
           const Positioned(
             left: 0,
@@ -41,19 +53,6 @@ class MainScreen extends ConsumerWidget {
       ),
       bottomNavigationBar: BottomNavBar(),
     );
-  }
-
-  Widget _buildPage(int index) {
-    switch (index) {
-      case 0:
-        return const HomeScreen();
-      case 1:
-        return const Center(child: Text('Profile Page'));
-      case 2:
-        return const Center(child: Text('Settings Page'));
-      default:
-        return const HomeScreen();
-    }
   }
 }
 
