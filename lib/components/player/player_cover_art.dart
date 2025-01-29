@@ -9,12 +9,12 @@ class PlayerCoverArt extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(60),
+      padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 32.0),
       child: AspectRatio(
         aspectRatio: 1,
         child: audiobook.coverImage != null
             ? ClipRRect(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(16),
                 child: Image.memory(
                   audiobook.coverImage!,
                   fit: BoxFit.cover,
@@ -23,7 +23,7 @@ class PlayerCoverArt extends StatelessWidget {
             : Container(
                 decoration: BoxDecoration(
                   color: Colors.grey[200],
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(16),
                 ),
                 child: const Icon(
                   Icons.music_note,

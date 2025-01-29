@@ -19,7 +19,7 @@ class PlayerSeekBar extends ConsumerWidget {
     }
 
     return Padding(
-      padding: const EdgeInsets.all(24.0),
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
       child: Column(
         children: [
           Slider(
@@ -37,15 +37,12 @@ class PlayerSeekBar extends ConsumerWidget {
               }
             },
           ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(DurationFormatter.format(chapterState.chapterPosition)),
-                Text(DurationFormatter.format(chapterState.chapterDuration)),
-              ],
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(DurationFormatter.format(chapterState.chapterPosition)),
+              Text(DurationFormatter.format(chapterState.chapterDuration)),
+            ],
           ),
         ],
       ),

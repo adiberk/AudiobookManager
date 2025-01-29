@@ -1,8 +1,7 @@
-import 'package:audiobook_manager/providers/providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import '../../providers/chapter_state_provider.dart';
+import '../../providers/providers.dart';
 
 class PlayerControls extends ConsumerWidget {
   const PlayerControls({super.key});
@@ -76,7 +75,7 @@ class PlayerControls extends ConsumerWidget {
   }) {
     return IconButton(
       icon: Icon(icon),
-      iconSize: 32,
+      iconSize: 36, // Slightly larger buttons
       onPressed: onPressed,
     );
   }
@@ -92,7 +91,7 @@ class PlayerControls extends ConsumerWidget {
           ),
           child: IconButton(
             icon: Icon(isPlaying ? Icons.pause : Icons.play_arrow),
-            iconSize: 48,
+            iconSize: 56, // Larger play button for better interaction
             color: Colors.white,
             onPressed: () {
               final audioPlayer = ref.read(audioPlayerProvider.notifier);

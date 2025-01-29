@@ -11,11 +11,11 @@ class DragHandle extends StatelessWidget {
       onTap: onTap,
       child: Container(
         padding: EdgeInsets.only(
-          top: MediaQuery.of(context).padding.top +
-              12, // Add safe area padding plus original padding
-          bottom: 0,
+          top: MediaQuery.of(context).padding.top,
+          bottom: 20,
         ),
         width: double.infinity,
+        color: Colors.transparent, // Make the whole area tappable
         child: Center(
           child: Container(
             width: 40,

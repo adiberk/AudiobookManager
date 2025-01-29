@@ -215,6 +215,17 @@ class AudioPlayerNotifier extends StateNotifier<AudioPlayerState> {
           chapterIndex < (state.currentBook?.chapters.length ?? 0)) {
         await state.player?.seek(Duration.zero, index: chapterIndex);
       }
+    } else {
+      // Seek to specific position in single file audiobook
+      if (chapterIndex == 0) {
+        await state.player?.seek(Duration.zero);
+      } else {
+        final chapter = state.currentBook?.chapters[chapterIndex - 1];
+        if (chapter != null) {
+          await state.player
+              ?.seek(chapter.start + const Duration(milliseconds: 1));
+        }
+      }
     }
   }
 
