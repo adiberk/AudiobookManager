@@ -209,20 +209,33 @@ class AudiobookListItem extends ConsumerWidget {
   }
 
   Future<void> _deleteAudiobook(BuildContext context, WidgetRef ref) async {
+    // Store necessary values before deletion
     final playerState = ref.read(audioPlayerProvider);
+    final currentBookId = playerState.currentBook?.id;
+    final audiobooksNotifier = ref.read(audiobooksProvider.notifier);
+    final playerNotifier = ref.read(audioPlayerProvider.notifier);
 
-    await ref
-        .read(audiobooksProvider.notifier)
-        .deleteAudiobooks({audiobook.id});
+    try {
+      // Delete from storage first
+      if (audiobook.isFolder) {
+        await ImportService.deleteFolder(audiobook.path);
+      } else {
+        await ImportService.deleteFile(audiobook.path);
+      }
 
-    if (audiobook.isFolder) {
-      await ImportService.deleteFolder(audiobook.path);
-    } else {
-      await ImportService.deleteFile(audiobook.path);
-    }
+      // Then update the UI state
+      await audiobooksNotifier.deleteAudiobooks({audiobook.id});
 
-    if (playerState.currentBook?.id == audiobook.id) {
-      await ref.read(audioPlayerProvider.notifier).clearCurrentBook();
+      // Clear player if current book was deleted
+      if (currentBookId == audiobook.id) {
+        await playerNotifier.clearCurrentBook();
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error deleting audiobook: $e')),
+        );
+      }
     }
   }
 }

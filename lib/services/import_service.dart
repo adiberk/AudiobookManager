@@ -96,16 +96,15 @@ class ImportService {
         Duration totalDuration = Duration.zero;
 
         // Get all audio files in the folder
-        List<FileSystemEntity> files = directory
-            .listSync()
-            .where((entity) =>
-                entity is File &&
-                _supportedFormats.contains(
-                    path.extension(entity.path).toLowerCase().substring(1)))
-            .toList();
+        List<FileSystemEntity> files = directory.listSync().where((entity) {
+          if (entity is! File) return false;
+          final extension = path.extension(entity.path).toLowerCase();
+          return extension.isNotEmpty &&
+              _supportedFormats.contains(extension.substring(1));
+        }).toList();
 
         // Sort files by name to maintain order
-        files.sort((a, b) => a.path.compareTo(b.path));
+        // files.sort((a, b) => a.path.compareTo(b.path));
 
         for (var entity in files) {
           if (entity is File) {
@@ -128,6 +127,7 @@ class ImportService {
               title: metadata['title'] ?? path.basename(entity.path),
               start: totalDuration,
               end: totalDuration + fileDuration,
+              duration: fileDuration,
               filePath: path.join(_processedFolderName,
                   path.basename(newFolderPath), path.basename(entity.path)),
             );
@@ -199,7 +199,7 @@ class ImportService {
           final String destinationFilePath =
               path.join(destinationFolder.path, newFileName);
           await entity.copy(destinationFilePath);
-          await entity.delete();
+          // await entity.delete();
         }
       }
 

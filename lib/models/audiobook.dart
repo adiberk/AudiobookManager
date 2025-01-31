@@ -6,12 +6,14 @@ class Chapter {
   final String title;
   final Duration start;
   final Duration end;
+  final Duration duration;
   final String? filePath; // Added for folder-based chapters
 
-  Chapter({
+  const Chapter({
     required this.title,
     required this.start,
     required this.end,
+    required this.duration,
     this.filePath,
   });
 
@@ -19,6 +21,7 @@ class Chapter {
         'title': title,
         'start': start.inMilliseconds,
         'end': end.inMilliseconds,
+        'duration': duration.inMicroseconds,
         'filePath': filePath,
       };
 
@@ -26,6 +29,7 @@ class Chapter {
         title: json['title'],
         start: Duration(milliseconds: json['start']),
         end: Duration(milliseconds: json['end']),
+        duration: Duration(milliseconds: json['duration']),
         filePath: json['filePath'],
       );
 }

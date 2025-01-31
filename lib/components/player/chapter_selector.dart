@@ -55,20 +55,14 @@ class ChapterSelector extends ConsumerWidget {
                   ),
                 ),
                 subtitle: Text(
-                  'Duration: ${DurationFormatter.format(chapter.start - chapter.end)}',
+                  'Duration: ${DurationFormatter.format(chapter.end - chapter.start)}',
                   style: TextStyle(
                     fontSize: 12,
                     color: Colors.grey[600],
                   ),
                 ),
                 onTap: () {
-                  if (audiobook.isJoinedVolume) {
-                    ref.read(audioPlayerProvider.notifier).seekToChapter(index);
-                  } else {
-                    ref.read(audioPlayerProvider.notifier).seek(
-                          chapter.start + const Duration(milliseconds: 1),
-                        );
-                  }
+                  ref.read(audioPlayerProvider.notifier).seekToChapter(index);
                   Navigator.pop(context);
                 },
               );

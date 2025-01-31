@@ -1,8 +1,6 @@
 import 'package:audiobook_manager/models/audiobook.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../providers/chapter_state_provider.dart';
 import '../../providers/providers.dart';
 
 class ModernPlayerControls extends ConsumerWidget {
@@ -11,7 +9,6 @@ class ModernPlayerControls extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final audioPlayerState = ref.watch(audioPlayerProvider);
-    final chapterState = ref.watch(chapterStateProvider);
     final audiobook = audioPlayerState.currentBook;
 
     if (audiobook == null) {
@@ -24,7 +21,7 @@ class ModernPlayerControls extends ConsumerWidget {
         children: [
           _buildSecondaryButton(
             Icons.skip_previous,
-            () => _skipToPrevious(ref, audiobook, chapterState),
+            () => _skipToPrevious(ref, audiobook),
           ),
           _buildSecondaryButton(
             Icons.replay_30,
@@ -37,7 +34,7 @@ class ModernPlayerControls extends ConsumerWidget {
           ),
           _buildSecondaryButton(
             Icons.skip_next,
-            () => _skipToNext(ref, audiobook, chapterState),
+            () => _skipToNext(ref, audiobook),
           ),
         ],
       ),
@@ -94,35 +91,16 @@ class ModernPlayerControls extends ConsumerWidget {
     );
   }
 
-  void _skipToPrevious(
-      WidgetRef ref, AudioBook audiobook, ChapterState chapterState) {
-    final audioPlayer = ref.read(audioPlayerProvider.notifier);
-    if (audiobook.isJoinedVolume) {
-      if (chapterState.chapterIndex > 0) {
-        audioPlayer.skipToPrevious();
-      }
-    } else {
-      if (chapterState.chapterIndex > 0) {
-        final previousChapter =
-            audiobook.chapters[chapterState.chapterIndex - 1];
-        audioPlayer
-            .seek(previousChapter.start + const Duration(milliseconds: 1));
-      }
+  void _skipToPrevious(WidgetRef ref, AudioBook audiobook) {
+    if (ref.read(audioPlayerProvider).chapterIndex > 0) {
+      ref.read(audioPlayerProvider.notifier).skipToPrevious();
     }
   }
 
-  void _skipToNext(
-      WidgetRef ref, AudioBook audiobook, ChapterState chapterState) {
-    final audioPlayer = ref.read(audioPlayerProvider.notifier);
-    if (audiobook.isJoinedVolume) {
-      if (chapterState.chapterIndex < audiobook.chapters.length - 1) {
-        audioPlayer.skipToNext();
-      }
-    } else {
-      if (chapterState.chapterIndex < audiobook.chapters.length - 1) {
-        final nextChapter = audiobook.chapters[chapterState.chapterIndex + 1];
-        audioPlayer.seek(nextChapter.start + const Duration(milliseconds: 1));
-      }
+  void _skipToNext(WidgetRef ref, AudioBook audiobook) {
+    if (ref.read(audioPlayerProvider).chapterIndex <
+        audiobook.chapters.length - 1) {
+      ref.read(audioPlayerProvider.notifier).skipToNext();
     }
   }
 }

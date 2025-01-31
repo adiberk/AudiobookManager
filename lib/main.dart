@@ -8,7 +8,6 @@ import 'providers/theme_provider.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await HiveStorageService().init();
-
   runApp(
     const ProviderScope(
       child: AudioBookApp(),

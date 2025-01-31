@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../providers/chapter_state_provider.dart';
 import '../../providers/providers.dart';
 import '../../utils/duration_formatter.dart';
 
@@ -12,7 +10,6 @@ class ModernPlayerSeekBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final audioPlayer = ref.watch(audioPlayerProvider.notifier);
     final audioPlayerState = ref.watch(audioPlayerProvider);
-    final chapterState = ref.watch(chapterStateProvider);
     final audiobook = audioPlayerState.currentBook;
 
     if (audiobook == null) return const SizedBox();
@@ -37,17 +34,11 @@ class ModernPlayerSeekBar extends ConsumerWidget {
                   Theme.of(context).colorScheme.primary.withOpacity(0.2),
             ),
             child: Slider(
-              value: chapterState.chapterPosition.inMilliseconds.toDouble(),
-              max: chapterState.chapterDuration.inMilliseconds.toDouble(),
+              value: audioPlayerState.chapterPosition.inMilliseconds.toDouble(),
+              max: audioPlayerState.chapterDuration.inMilliseconds.toDouble(),
               onChanged: (value) {
-                final newPosition = Duration(milliseconds: value.toInt());
-                if (audiobook.isJoinedVolume) {
-                  audioPlayer.seek(newPosition);
-                } else {
-                  final absolutePosition =
-                      chapterState.currentChapter.start + newPosition;
-                  audioPlayer.seek(absolutePosition);
-                }
+                final relativePosition = Duration(milliseconds: value.toInt());
+                audioPlayer.seek(relativePosition);
               },
             ),
           ),
@@ -57,9 +48,9 @@ class ModernPlayerSeekBar extends ConsumerWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 _buildTimeText(
-                    DurationFormatter.format(chapterState.chapterPosition)),
+                    DurationFormatter.format(audioPlayerState.chapterPosition)),
                 _buildTimeText(
-                    DurationFormatter.format(chapterState.chapterDuration)),
+                    DurationFormatter.format(audioPlayerState.chapterDuration)),
               ],
             ),
           ),

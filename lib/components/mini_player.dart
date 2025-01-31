@@ -6,7 +6,6 @@ import 'package:audiobook_manager/providers/main_navigation_provider.dart';
 import 'package:audiobook_manager/providers/providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/chapter_state_provider.dart';
 
 class MiniPlayer extends ConsumerWidget {
   const MiniPlayer({super.key});
@@ -15,7 +14,6 @@ class MiniPlayer extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final playerState = ref.watch(audioPlayerProvider);
     final uiState = ref.watch(playerUIProvider);
-    final chapterState = ref.watch(chapterStateProvider);
     final navigationState = ref.watch(selectedNavigationProvider);
     final book = playerState.currentBook;
 
@@ -97,7 +95,7 @@ class MiniPlayer extends ConsumerWidget {
                             overflow: TextOverflow.ellipsis,
                           ),
                           if ((book?.chapters.length ?? 0) > 1)
-                            Text(chapterState.currentChapter.title),
+                            Text(playerState.currentChapter.title),
                         ],
                       ),
                     ),

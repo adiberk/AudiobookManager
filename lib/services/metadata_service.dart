@@ -63,6 +63,7 @@ class MetadataService {
                   formattedChapters.add(Chapter(
                     title: title,
                     start: start,
+                    duration: end - start,
                     end: end,
                   ));
                 } catch (e) {
@@ -78,6 +79,8 @@ class MetadataService {
                 formattedChapters.add(Chapter(
                   title: 'Full Book',
                   start: Duration.zero,
+                  duration:
+                      Duration(microseconds: (totalDuration * 1000000).round()),
                   end:
                       Duration(microseconds: (totalDuration * 1000000).round()),
                 ));

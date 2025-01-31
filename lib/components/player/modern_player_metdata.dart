@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/audiobook.dart';
-import '../../providers/chapter_state_provider.dart';
+import '../../providers/providers.dart';
 
 class ModernPlayerMetadata extends ConsumerWidget {
   final AudioBook audiobook;
@@ -11,7 +11,7 @@ class ModernPlayerMetadata extends ConsumerWidget {
   const ModernPlayerMetadata({super.key, required this.audiobook});
 
   void _showChapterSelector(
-      BuildContext context, WidgetRef ref, ChapterState currentState) {
+      BuildContext context, WidgetRef ref, Chapter currentChapter) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -20,17 +20,21 @@ class ModernPlayerMetadata extends ConsumerWidget {
       ),
       builder: (context) => ChapterSelector(
         audiobook: audiobook,
-        currentChapter: currentState.currentChapter,
+        currentChapter: currentChapter,
       ),
     );
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final chapterState = ref.watch(chapterStateProvider);
+    final playerState = ref.watch(audioPlayerProvider);
+    final isLandscape =
+        MediaQuery.of(context).orientation == Orientation.landscape;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24.0),
+      padding: EdgeInsets.symmetric(
+        horizontal: isLandscape ? 8.0 : 24.0,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -39,25 +43,31 @@ class ModernPlayerMetadata extends ConsumerWidget {
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.bold,
                   letterSpacing: -0.5,
+                  // Smaller text in landscape
+                  fontSize: isLandscape ? 18 : null,
                 ),
             textAlign: TextAlign.center,
-            maxLines: 2,
+            maxLines: isLandscape ? 1 : 2,
             overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: isLandscape ? 4 : 8),
           Text(
             audiobook.author,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   color: Colors.grey[600],
                   fontWeight: FontWeight.w500,
+                  // Smaller text in landscape
+                  fontSize: isLandscape ? 14 : null,
                 ),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 16),
           if (audiobook.chapters.length > 1)
             GestureDetector(
-              onTap: () => _showChapterSelector(context, ref, chapterState),
-              child: _buildChapterInfo(context, chapterState),
+              onTap: () => _showChapterSelector(
+                  context, ref, playerState.currentChapter),
+              child: _buildChapterInfo(
+                  context, playerState.currentChapter, isLandscape),
             ),
         ],
       ),
@@ -65,7 +75,7 @@ class ModernPlayerMetadata extends ConsumerWidget {
   }
 
   Widget _buildChapterInfo(
-      BuildContext context, ChapterState chapterState, bool isLandscape) {
+      BuildContext context, Chapter currentChapter, bool isLandscape) {
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: 16,
@@ -86,7 +96,7 @@ class ModernPlayerMetadata extends ConsumerWidget {
           const SizedBox(width: 8),
           Flexible(
             child: Text(
-              chapterState.currentChapter.title,
+              currentChapter.title,
               style: TextStyle(
                 fontSize: isLandscape ? 12 : 14,
                 color: Theme.of(context).colorScheme.primary,

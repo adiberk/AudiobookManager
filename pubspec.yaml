@@ -43,6 +43,7 @@ dependencies:
   flutter_slidable: ^4.0.0
   marquee: ^2.3.0
   just_audio: ^0.9.43
+  audio_service: ^0.18.16
 
 dev_dependencies:
   flutter_test:

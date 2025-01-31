@@ -11,6 +11,10 @@ class AudioPlayerState {
   final AudioBook? currentBook;
   final AudioPlayer? player;
   final ConcatenatingAudioSource? playlist;
+  final Chapter currentChapter;
+  final Duration chapterPosition;
+  final Duration chapterDuration;
+  final int chapterIndex;
   final bool isLoading; // New field to track loading state
 
   AudioPlayerState({
@@ -20,6 +24,15 @@ class AudioPlayerState {
     this.currentBook,
     this.player,
     this.playlist,
+    this.currentChapter = const Chapter(
+      title: '',
+      start: Duration.zero,
+      end: Duration.zero,
+      duration: Duration.zero,
+    ),
+    this.chapterPosition = Duration.zero,
+    this.chapterDuration = Duration.zero,
+    this.chapterIndex = 0,
     this.isLoading = false,
   });
 
@@ -31,6 +44,10 @@ class AudioPlayerState {
     AudioPlayer? player,
     ConcatenatingAudioSource? playlist,
     bool? isLoading,
+    Chapter? currentChapter,
+    Duration? chapterPosition,
+    Duration? chapterDuration,
+    int? chapterIndex,
   }) {
     return AudioPlayerState(
       duration: duration ?? this.duration,
@@ -40,6 +57,10 @@ class AudioPlayerState {
       player: player ?? this.player,
       playlist: playlist ?? this.playlist,
       isLoading: isLoading ?? this.isLoading,
+      currentChapter: currentChapter ?? this.currentChapter,
+      chapterPosition: chapterPosition ?? this.chapterPosition,
+      chapterDuration: chapterDuration ?? this.chapterDuration,
+      chapterIndex: chapterIndex ?? this.chapterIndex,
     );
   }
 }
@@ -63,12 +84,33 @@ class AudioPlayerNotifier extends StateNotifier<AudioPlayerState> {
 
     player.positionStream.listen((position) {
       if (!state.isLoading && state.currentBook != null) {
-        final updatedBook = state.currentBook!.copyWith(
+        final book = state.currentBook!;
+        final chapterIndex = state.player!.currentIndex ?? 0;
+        final currentChapter = book.chapters[chapterIndex];
+
+        // For folder-based chapters, use position directly
+        // For single-file chapters or joined volumes, position is already relative to clip
+        final chapterPosition =
+            book.isFolder && !book.isJoinedVolume ? position : position;
+
+        final chapterDuration = book.isFolder && !book.isJoinedVolume
+            ? currentChapter.duration
+            : currentChapter.end - currentChapter.start;
+
+        final updatedBook = book.copyWith(
           currentPosition: position,
-          currentChapterIndex: state.player!.currentIndex ?? 0,
+          currentChapterIndex: chapterIndex,
         );
+
         ref.read(audiobooksProvider.notifier).updateAudiobook(updatedBook);
-        state = state.copyWith(currentBook: updatedBook);
+
+        state = state.copyWith(
+          currentBook: updatedBook,
+          currentChapter: currentChapter,
+          chapterPosition: chapterPosition,
+          chapterDuration: chapterDuration,
+          chapterIndex: chapterIndex,
+        );
       }
     });
 
@@ -120,35 +162,18 @@ class AudioPlayerNotifier extends StateNotifier<AudioPlayerState> {
       );
 
       final fullPath = await ImportService.resolveFullPath(book.path);
-
-      if (book.isFolder && book.isJoinedVolume) {
-        final playlist = ConcatenatingAudioSource(
-          children: await Future.wait(
-            book.chapters.map((chapter) async {
-              final fullChapterPath =
-                  await ImportService.resolveFullPath(chapter.filePath!);
-              return AudioSource.file(fullChapterPath);
-            }),
-          ),
-        );
-
-        await state.player?.setAudioSource(playlist);
-        state = state.copyWith(
-          playlist: playlist,
-          currentBook: book,
-        );
-
-        if (book.currentChapterIndex > 0) {
-          await state.player
-              ?.seek(Duration.zero, index: book.currentChapterIndex);
-        }
-      } else {
-        await state.player?.setFilePath(fullPath);
-        state = state.copyWith(currentBook: book);
-      }
-
-      if (book.currentPosition > Duration.zero) {
-        await state.player?.seek(book.currentPosition);
+      final playlist = ConcatenatingAudioSource(
+          children: book.isFolder
+              ? await _createFolderChapterSources(book)
+              : await _createSingleFileChapterSources(book, fullPath));
+      await state.player?.setAudioSource(playlist);
+      state = state.copyWith(
+        playlist: playlist,
+        currentBook: book,
+      );
+      if (book.currentChapterIndex > 0) {
+        await state.player
+            ?.seek(Duration.zero, index: book.currentChapterIndex);
       }
     } catch (e) {
       print('Error setting audiobook: $e');
@@ -162,6 +187,27 @@ class AudioPlayerNotifier extends StateNotifier<AudioPlayerState> {
     } finally {
       state = state.copyWith(isLoading: false);
     }
+  }
+
+  Future<List<AudioSource>> _createFolderChapterSources(AudioBook book) async {
+    return Future.wait(
+      book.chapters.map((chapter) async {
+        final fullChapterPath =
+            await ImportService.resolveFullPath(chapter.filePath!);
+        return AudioSource.file(fullChapterPath);
+      }),
+    );
+  }
+
+  Future<List<AudioSource>> _createSingleFileChapterSources(
+      AudioBook book, String fullPath) async {
+    return book.chapters.map((chapter) {
+      return ClippingAudioSource(
+        child: AudioSource.file(fullPath),
+        start: chapter.start,
+        end: chapter.end,
+      );
+    }).toList();
   }
 
   // Return player position
@@ -178,9 +224,21 @@ class AudioPlayerNotifier extends StateNotifier<AudioPlayerState> {
       await play();
     }
   }
+  // Future<void> seek(Duration position) async =>
+  //     await state.player?.seek(position);
 
-  Future<void> seek(Duration position) async =>
-      await state.player?.seek(position);
+  Future<void> seek(Duration position) async {
+    if (state.player != null && state.currentBook != null) {
+      final book = state.currentBook!;
+      if (book.isFolder && !book.isJoinedVolume) {
+        // For folder-based chapters, seek directly
+        await state.player?.seek(position);
+      } else {
+        // For single-file chapters or joined volumes, use relative position
+        await state.player?.seek(position, index: state.player?.currentIndex);
+      }
+    }
+  }
 
   Future<void> skipForward() async {
     if (state.player != null) {
@@ -209,23 +267,9 @@ class AudioPlayerNotifier extends StateNotifier<AudioPlayerState> {
   }
 
   Future<void> seekToChapter(int chapterIndex) async {
-    if ((state.currentBook?.isFolder ?? false) &&
-        state.currentBook?.isJoinedVolume == true) {
-      if (chapterIndex >= 0 &&
-          chapterIndex < (state.currentBook?.chapters.length ?? 0)) {
-        await state.player?.seek(Duration.zero, index: chapterIndex);
-      }
-    } else {
-      // Seek to specific position in single file audiobook
-      if (chapterIndex == 0) {
-        await state.player?.seek(Duration.zero);
-      } else {
-        final chapter = state.currentBook?.chapters[chapterIndex - 1];
-        if (chapter != null) {
-          await state.player
-              ?.seek(chapter.start + const Duration(milliseconds: 1));
-        }
-      }
+    if (chapterIndex >= 0 &&
+        chapterIndex < (state.currentBook?.chapters.length ?? 0)) {
+      await state.player?.seek(Duration.zero, index: chapterIndex);
     }
   }
 

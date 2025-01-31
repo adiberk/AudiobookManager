@@ -55,17 +55,20 @@ class _FolderContentsScreenState extends ConsumerState<FolderContentsScreen> {
         id: chapter.filePath ?? Uuid().v4(),
         title: chapter.title,
         author: folder.author,
-        duration: DurationFormatter.format(chapter.end - chapter.start),
+        duration: DurationFormatter.format(chapter.duration),
         path: chapter.filePath!,
         coverImage: folder.coverImage,
         chapters: [
           Chapter(
             title: chapter.title,
             start: Duration.zero,
-            end: chapter.end - chapter.start,
+            end: chapter.duration,
+            duration: chapter.duration,
             filePath: chapter.filePath,
           )
         ],
+        isFolder: false, // Important: mark as not a folder
+        isJoinedVolume: false,
       );
     }).toList();
 
@@ -88,6 +91,21 @@ class _FolderContentsScreenState extends ConsumerState<FolderContentsScreen> {
           setState(() {
             final chapter = localChapters.removeAt(oldIndex);
             localChapters.insert(newIndex, chapter);
+
+            // Recalculate timestamps for all chapters
+            Duration currentStart = Duration.zero;
+            for (int i = 0; i < localChapters.length; i++) {
+              final chapter = localChapters[i];
+              final chapterDuration = chapter.end - chapter.start;
+              localChapters[i] = Chapter(
+                title: chapter.title,
+                start: currentStart,
+                duration: chapter.duration,
+                end: currentStart + chapterDuration,
+                filePath: chapter.filePath,
+              );
+              currentStart += chapterDuration;
+            }
           });
 
           // Update the persistent state after the animation
