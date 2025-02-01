@@ -66,10 +66,13 @@ class HomeScreen extends ConsumerWidget {
     try {
       final audiobookManager = ref.read(audiobooksProvider.notifier);
       if (importType == 'files') {
-        final audiobooks = await importService.importFiles();
-        for (final book in audiobooks) {
-          await audiobookManager.addAudiobook(book);
+        await for (final audiobook in importService.importFiles()) {
+          await audiobookManager.addAudiobook(audiobook);
         }
+        // final audiobooks = await importService.importFiles();
+        // for (final book in audiobooks) {
+        //   await audiobookManager.addAudiobook(book);
+        // }
       } else if (importType == 'folder') {
         final book = await importService.importFolder();
         if (book != null) {
@@ -144,19 +147,44 @@ class HomeScreen extends ConsumerWidget {
           actions: [
             PopupMenuButton<String>(
               icon: const Icon(Icons.add),
+              offset: const Offset(0, 45),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              elevation: 8,
               onSelected: (String choice) =>
                   _pickAndProcessAudiobook(ref, choice),
               itemBuilder: (BuildContext context) => [
-                const PopupMenuItem<String>(
+                PopupMenuItem<String>(
                   value: 'files',
-                  child: Text('Import Files'),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.file_present_rounded,
+                        color: Theme.of(context).colorScheme.primary,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 12),
+                      const Text('Import Files'),
+                    ],
+                  ),
                 ),
-                const PopupMenuItem<String>(
+                PopupMenuItem<String>(
                   value: 'folder',
-                  child: Text('Import Folder'),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.folder_rounded,
+                        color: Theme.of(context).colorScheme.primary,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 12),
+                      const Text('Import Folder'),
+                    ],
+                  ),
                 ),
               ],
-            ),
+            )
           ],
         ),
         body: Stack(children: [

@@ -48,12 +48,12 @@ class AudiobookListItem extends ConsumerWidget {
       child: Card(
         child: ListTile(
           leading: leadingBuilder?.call(audiobook) ?? _defaultLeading(),
-          title: ConditionalMarquee(
-            text: audiobook.title,
+          title: Text(
+            audiobook.title,
             style: const TextStyle(fontSize: 14),
-            maxWidth: 100,
-            velocity: 40,
-            pauseAfterRound: const Duration(seconds: 3),
+            // maxWidth: 100,
+            // velocity: 0,
+            // pauseAfterRound: const Duration(seconds: 3),
           ),
           subtitle: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -68,23 +68,61 @@ class AudiobookListItem extends ConsumerWidget {
             ],
           ),
           trailing: PopupMenuButton(
-            icon: const Icon(Icons.more_vert),
+            icon: Icon(
+              Icons.more_vert,
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+            ),
+            offset: const Offset(0, 40),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            elevation: 8,
             itemBuilder: (context) => [
               if (audiobook.isFolder && !audiobook.isJoinedVolume) ...[
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'join_as_volume',
-                  child: Text('Join as Volume'),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.merge_type_rounded,
+                        color: Theme.of(context).colorScheme.primary,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 12),
+                      const Text('Join As Single Audiobook'),
+                    ],
+                  ),
                 ),
               ],
               if (audiobook.isFolder && audiobook.isJoinedVolume) ...[
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'unjoin',
-                  child: Text('Unjoin'),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.call_split_rounded,
+                        color: Theme.of(context).colorScheme.primary,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 12),
+                      const Text('Unjoin'),
+                    ],
+                  ),
                 ),
               ],
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'delete',
-                child: Text('Delete'),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.delete_outline_rounded,
+                      color: Theme.of(context).colorScheme.error,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 12),
+                    const Text('Delete'),
+                  ],
+                ),
               ),
             ],
             onSelected: (value) {

@@ -44,10 +44,25 @@ class MiniPlayer extends ConsumerWidget {
               height: 60,
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.secondary,
+                borderRadius: BorderRadius.circular(10),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.2),
-                    blurRadius: 4,
+                    color: Theme.of(context)
+                        .colorScheme
+                        .secondary
+                        .withOpacity(0.3),
+                    blurRadius: 15,
+                    spreadRadius: 2,
+                    offset: const Offset(0, 3),
+                  ),
+                  BoxShadow(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .secondary
+                        .withOpacity(0.2),
+                    blurRadius: 30,
+                    spreadRadius: 5,
+                    offset: const Offset(0, 5),
                   ),
                 ],
               ),

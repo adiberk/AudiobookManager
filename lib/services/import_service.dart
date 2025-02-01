@@ -39,7 +39,7 @@ class ImportService {
     return processedDir;
   }
 
-  Future<List<AudioBook>> importFiles() async {
+  Stream<AudioBook> importFiles() async* {
     String initialDirectory = await _documentsPath;
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
@@ -49,8 +49,6 @@ class ImportService {
           initialDirectory: initialDirectory);
 
       if (result != null) {
-        List<AudioBook> importedBooks = [];
-
         for (var file in result.files) {
           File? processedFile = file.path != null
               ? await processAudioFile(File(file.path!))
@@ -67,19 +65,55 @@ class ImportService {
               coverImage: metadata['cover_photo'],
               chapters: (metadata['chapters'] as List<Chapter>?) ?? [],
             );
-
-            importedBooks.add(audiobook);
+            yield audiobook;
           }
         }
-
-        return importedBooks;
       }
     } catch (e) {
       print('Error importing files: $e');
     }
-
-    return [];
   }
+  // Future<List<AudioBook>> importFiles() async {
+  //   String initialDirectory = await _documentsPath;
+  //   try {
+  //     FilePickerResult? result = await FilePicker.platform.pickFiles(
+  //         type: FileType.custom,
+  //         allowedExtensions: _supportedFormats,
+  //         allowMultiple: true,
+  //         initialDirectory: initialDirectory);
+
+  //     if (result != null) {
+  //       List<AudioBook> importedBooks = [];
+
+  //       for (var file in result.files) {
+  //         File? processedFile = file.path != null
+  //             ? await processAudioFile(File(file.path!))
+  //             : null;
+  //         if (processedFile != null) {
+  //           final metadata = await MetadataService.extractMetadata(
+  //               await resolveFullPath(file.path!));
+
+  //           final audiobook = AudioBook(
+  //             title: metadata['title'] ?? path.basename(file.path!),
+  //             author: metadata['author'] ?? 'Unknown Author',
+  //             duration: metadata['duration']?['formatted'] ?? '00:00:00',
+  //             path: processedFile.path!,
+  //             coverImage: metadata['cover_photo'],
+  //             chapters: (metadata['chapters'] as List<Chapter>?) ?? [],
+  //           );
+  //           yield audiobook;
+  //           // importedBooks.add(audiobook);
+  //         }
+  //       }
+
+  //       return importedBooks;
+  //     }
+  //   } catch (e) {
+  //     print('Error importing files: $e');
+  //   }
+
+  //   return [];
+  // }
 
   Future<AudioBook?> importFolder() async {
     String initialDirectory = await _documentsPath;
