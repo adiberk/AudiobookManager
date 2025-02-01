@@ -190,6 +190,7 @@ class AudioPlayerNotifier extends StateNotifier<AudioPlayerState> {
   }
 
   Future<List<AudioSource>> _createFolderChapterSources(AudioBook book) async {
+    // Create a concatenated audio file in memory for the folder chapters
     return Future.wait(
       book.chapters.map((chapter) async {
         final fullChapterPath =

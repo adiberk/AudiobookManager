@@ -4,6 +4,7 @@ import 'package:audiobook_manager/utils/duration_formatter.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
+import 'package:security_scoped_resource/security_scoped_resource.dart';
 import 'package:uuid/uuid.dart';
 import '../models/audiobook.dart';
 import 'metadata_service.dart';
@@ -83,8 +84,7 @@ class ImportService {
   Future<AudioBook?> importFolder() async {
     String initialDirectory = await _documentsPath;
     try {
-      String? folderPath = await FilePicker.platform
-          .getDirectoryPath(initialDirectory: initialDirectory);
+      String? folderPath = await FilePicker.platform.getDirectoryPath();
       String? newFolderPath = folderPath != null
           ? await processFolder(Directory(folderPath))
           : null;
@@ -96,16 +96,13 @@ class ImportService {
         Duration totalDuration = Duration.zero;
 
         // Get all audio files in the folder
-        List<FileSystemEntity> files = directory.listSync().where((entity) {
+        List<FileSystemEntity> files = await directory.list().where((entity) {
           if (entity is! File) return false;
           final extension = path.extension(entity.path).toLowerCase();
           return extension.isNotEmpty &&
               _supportedFormats.contains(extension.substring(1));
         }).toList();
-
-        // Sort files by name to maintain order
-        // files.sort((a, b) => a.path.compareTo(b.path));
-
+        List<Map<String, dynamic>> chapterList = [];
         for (var entity in files) {
           if (entity is File) {
             final metadata = await MetadataService.extractMetadata(entity.path);
@@ -117,11 +114,9 @@ class ImportService {
             if (firstAuthor == null && metadata['author'] != null) {
               firstAuthor = metadata['author'];
             }
-
             // Calculate duration
             Duration fileDuration = Duration(
                 seconds: (metadata['duration']?['seconds'] ?? 0.0).round());
-
             // Create chapter from file
             Chapter chapter = Chapter(
               title: metadata['title'] ?? path.basename(entity.path),
@@ -131,10 +126,29 @@ class ImportService {
               filePath: path.join(_processedFolderName,
                   path.basename(newFolderPath), path.basename(entity.path)),
             );
+            chapterList.add({
+              "title": chapter.title,
+              "start": chapter.start,
+              "end": chapter.end,
+              "duration": chapter.duration,
+              "filePath": chapter.filePath
+            });
 
-            folderChapters.add(chapter);
+            // folderChapters.add(chapter);
             totalDuration += fileDuration;
           }
+        }
+        // sort by chapter title, redo durations
+        totalDuration = Duration.zero;
+        chapterList.sort((a, b) => a['title'].compareTo(b['title']));
+        for (var ch in chapterList) {
+          folderChapters.add(Chapter(
+              title: ch['title'],
+              start: totalDuration,
+              end: totalDuration + ch['duration'],
+              duration: ch['duration'],
+              filePath: ch['filePath']));
+          totalDuration += ch['duration'];
         }
 
         if (folderChapters.isNotEmpty) {
@@ -180,11 +194,16 @@ class ImportService {
 
   static Future<String?> processFolder(Directory sourceFolder) async {
     try {
+      await SecurityScopedResource.instance
+          .startAccessingSecurityScopedResource(sourceFolder);
       final processedDir = await _processedDir;
       final String newFolderName = const Uuid().v4();
       final String destinationFolderPath =
           path.join(processedDir.path, newFolderName);
 
+      print('Source folder path: ${sourceFolder.path}');
+      print('Source folder exists: ${await sourceFolder.exists()}');
+      print('Destination path: $destinationFolderPath');
       // Create the new folder in the processed directory
       final destinationFolder = Directory(destinationFolderPath);
       if (!await destinationFolder.exists()) {

@@ -3,11 +3,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/providers.dart';
 import '../../utils/duration_formatter.dart';
 
-class ModernPlayerSeekBar extends ConsumerWidget {
+class ModernPlayerSeekBar extends ConsumerStatefulWidget {
   const ModernPlayerSeekBar({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ModernPlayerSeekBar> createState() =>
+      _ModernPlayerSeekBarState();
+}
+
+class _ModernPlayerSeekBarState extends ConsumerState<ModernPlayerSeekBar> {
+  double? dragValue;
+
+  @override
+  Widget build(BuildContext context) {
     final audioPlayer = ref.watch(audioPlayerProvider.notifier);
     final audioPlayerState = ref.watch(audioPlayerProvider);
     final audiobook = audioPlayerState.currentBook;
@@ -34,11 +42,24 @@ class ModernPlayerSeekBar extends ConsumerWidget {
                   Theme.of(context).colorScheme.primary.withOpacity(0.2),
             ),
             child: Slider(
-              value: audioPlayerState.chapterPosition.inMilliseconds.toDouble(),
+              value: dragValue ??
+                  audioPlayerState.chapterPosition.inMilliseconds.toDouble(),
               max: audioPlayerState.chapterDuration.inMilliseconds.toDouble(),
+              onChangeStart: (value) {
+                audioPlayer.pause();
+              },
               onChanged: (value) {
+                setState(() {
+                  dragValue = value;
+                });
+              },
+              onChangeEnd: (value) {
                 final relativePosition = Duration(milliseconds: value.toInt());
                 audioPlayer.seek(relativePosition);
+                audioPlayer.play();
+                setState(() {
+                  dragValue = null;
+                });
               },
             ),
           ),
@@ -48,7 +69,12 @@ class ModernPlayerSeekBar extends ConsumerWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 _buildTimeText(
-                    DurationFormatter.format(audioPlayerState.chapterPosition)),
+                  DurationFormatter.format(
+                    dragValue != null
+                        ? Duration(milliseconds: dragValue!.toInt())
+                        : audioPlayerState.chapterPosition,
+                  ),
+                ),
                 _buildTimeText(
                     DurationFormatter.format(audioPlayerState.chapterDuration)),
               ],

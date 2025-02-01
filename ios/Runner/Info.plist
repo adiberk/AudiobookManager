@@ -26,16 +26,22 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>UIFileSharingEnabled</key>
+	<true/>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<true/>
-	<key>NSDocumentsDirectoryUsageDescription</key>
-	<string>We need access to your files to import audiobooks.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>App needs access to select an audiobook file.</string>
-	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<key>UIDocumentBrowserViewController</key>
+	<true/>
+	<key>UISupportsDocumentBrowser</key>
+	<true/>
+	<key>NSAllowsArbitraryLoads</key>
+	<true/>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<true/>
 	<key>UIFileSharingEnabled</key>
 	<true/>
+	<key>NSAppleMusicUsageDescription</key>
+	<string>We need access to import your audiobooks</string>
 	<key>UIBackgroundModes</key>
 	<array>
     <string>audio</string>
@@ -60,5 +66,7 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<true/>
 </dict>
 </plist>
