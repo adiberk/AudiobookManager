@@ -21,17 +21,52 @@ class AudiobookList extends ConsumerWidget {
     if (audiobooks.isEmpty) {
       return const Center(child: Text('No audiobooks yet. Add some!'));
     }
+    int itemCount = audiobooks.length;
+    if (itemCount > 5) {
+      itemCount += 1; // Add an extra item for spacing
+    }
 
     return ListView.builder(
-      itemCount: audiobooks.length,
+      addAutomaticKeepAlives: false,
+      addRepaintBoundaries: true,
+      cacheExtent: 100,
+      itemCount: itemCount,
       itemBuilder: (context, index) {
+        if (index == audiobooks.length) {
+          // Return an empty container for the extra space
+          return const SizedBox(height: 50);
+        }
         var audiobook = audiobooks[index];
-        return AudiobookListItem(
-          audiobook: audiobook,
-          onTap: onTap,
-          leadingBuilder: leadingBuilder,
+        return KeyedSubtree(
+          key: ValueKey(audiobook.id),
+          child: AudiobookListItem(
+            audiobook: audiobook,
+            onTap: onTap,
+            leadingBuilder: leadingBuilder,
+          ),
         );
       },
     );
+
+    //   return ListView.builder(
+    //     // Add these properties for better performance
+    //     addAutomaticKeepAlives: false,
+    //     addRepaintBoundaries: true,
+    //     // itemExtent: 88.0, // Fixed height for better performance
+    //     cacheExtent: 100, // Increase cache for smoother scrolling
+    //     itemCount: audiobooks.length,
+    //     itemBuilder: (context, index) {
+    //       var audiobook = audiobooks[index];
+    //       return KeyedSubtree(
+    //         key: ValueKey(audiobook.id),
+    //         child: AudiobookListItem(
+    //           audiobook: audiobook,
+    //           onTap: onTap,
+    //           leadingBuilder: leadingBuilder,
+    //         ),
+    //       );
+    //     },
+    //   );
+    // }
   }
 }
