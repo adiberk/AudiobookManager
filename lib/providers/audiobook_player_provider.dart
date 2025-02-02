@@ -1,6 +1,12 @@
+import 'dart:io';
+import 'dart:typed_data';
+
+import 'package:audio_service/audio_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:path_provider/path_provider.dart';
 import '../models/audiobook.dart';
+import '../services/audio_handler.dart';
 import '../services/import_service.dart';
 import 'audiobook_provider.dart';
 
@@ -15,7 +21,7 @@ class AudioPlayerState {
   final Duration chapterPosition;
   final Duration chapterDuration;
   final int chapterIndex;
-  final bool isLoading; // New field to track loading state
+  final bool isLoading;
 
   AudioPlayerState({
     this.duration = Duration.zero,
@@ -67,36 +73,53 @@ class AudioPlayerState {
 
 class AudioPlayerNotifier extends StateNotifier<AudioPlayerState> {
   final Ref ref;
+  late AudiobookHandler _audioHandler;
+  bool _isInitialized = false;
 
   AudioPlayerNotifier(this.ref) : super(AudioPlayerState()) {
-    _initializePlayer();
+    _initializeHandler();
   }
 
-  Future<void> _initializePlayer() async {
-    final player = AudioPlayer();
-    state = state.copyWith(player: player);
+  Future<void> _initializeHandler() async {
+    if (_isInitialized) return;
+
+    _audioHandler = await AudioService.init(
+      builder: () => AudiobookHandler(),
+      config: const AudioServiceConfig(
+        androidNotificationChannelId: 'com.yourdomain.audiobook',
+        androidNotificationChannelName: 'Audiobook Player',
+        androidNotificationOngoing: true,
+      ),
+    );
+
+    state = state.copyWith(player: _audioHandler.player);
     _initializeListeners();
+    _isInitialized = true;
   }
 
   void _initializeListeners() {
-    final player = state.player;
-    if (player == null) return;
-
-    player.positionStream.listen((position) {
+    _audioHandler.player.positionStream.listen((position) {
       if (!state.isLoading && state.currentBook != null) {
         final book = state.currentBook!;
-        final chapterIndex = state.player!.currentIndex ?? 0;
+        final chapterIndex = _audioHandler.player.currentIndex ?? 0;
         final currentChapter = book.chapters[chapterIndex];
 
-        // For folder-based chapters, use position directly
-        // For single-file chapters or joined volumes, position is already relative to clip
         final chapterPosition =
-            book.isFolder && !book.isJoinedVolume ? position : position;
+            position; // Position is always absolute for the current file
 
-        final chapterDuration = book.isFolder && !book.isJoinedVolume
-            ? currentChapter.duration
-            : currentChapter.end - currentChapter.start;
-
+        // Calculate the correct duration based on the book type
+        final Duration chapterDuration;
+        if (book.isFolder) {
+          // For folder-based files, use the chapter's duration directly
+          chapterDuration = currentChapter.duration;
+        } else if (book.isJoinedVolume) {
+          // For joined volumes, use the difference between end and start
+          chapterDuration = currentChapter.end - currentChapter.start;
+        } else {
+          // For single files (including those from folder contents),
+          // use the player's duration
+          chapterDuration = _audioHandler.player.duration ?? Duration.zero;
+        }
         final updatedBook = book.copyWith(
           currentPosition: position,
           currentChapterIndex: chapterIndex,
@@ -114,7 +137,7 @@ class AudioPlayerNotifier extends StateNotifier<AudioPlayerState> {
       }
     });
 
-    player.playerStateStream.listen((playerState) {
+    _audioHandler.player.playerStateStream.listen((playerState) {
       if (!state.isLoading) {
         state = state.copyWith(
           playerState: playerState,
@@ -123,101 +146,36 @@ class AudioPlayerNotifier extends StateNotifier<AudioPlayerState> {
       }
     });
 
-    player.durationStream.listen((duration) {
+    _audioHandler.player.durationStream.listen((duration) {
       if (!state.isLoading) {
         state = state.copyWith(duration: duration ?? Duration.zero);
-      }
-    });
-
-    player.currentIndexStream.listen((index) {
-      if (!state.isLoading && index != null && state.currentBook != null) {
-        state = state.copyWith(
-          currentBook: state.currentBook!.copyWith(currentChapterIndex: index),
-        );
       }
     });
   }
 
   Future<void> setAudiobook(AudioBook book) async {
-    if (state.isLoading) return; // Prevent concurrent loading
+    if (state.isLoading) return;
 
     try {
       state = state.copyWith(isLoading: true);
-
-      if (state.player == null) {
-        await _initializePlayer();
-      }
-
-      // Stop current playback before switching
-      if (state.isPlaying) {
-        await state.player?.stop();
-      }
-
-      // Clear current state
+      await _audioHandler.setAudiobook(book);
       state = state.copyWith(
-        currentBook: null,
-        isPlaying: false,
-        playerState: PlayerState(false, ProcessingState.idle),
-        playlist: null,
-      );
-
-      final fullPath = await ImportService.resolveFullPath(book.path);
-      final playlist = ConcatenatingAudioSource(
-          children: book.isFolder
-              ? await _createFolderChapterSources(book)
-              : await _createSingleFileChapterSources(book, fullPath));
-      await state.player?.setAudioSource(playlist);
-      state = state.copyWith(
-        playlist: playlist,
         currentBook: book,
+        isPlaying: false,
       );
-      if (book.currentChapterIndex > 0) {
-        await state.player
-            ?.seek(Duration.zero, index: book.currentChapterIndex);
-      }
     } catch (e) {
       print('Error setting audiobook: $e');
-      // Reset state on error
       state = state.copyWith(
         currentBook: null,
         isPlaying: false,
-        playerState: PlayerState(false, ProcessingState.idle),
-        playlist: null,
       );
     } finally {
       state = state.copyWith(isLoading: false);
     }
   }
 
-  Future<List<AudioSource>> _createFolderChapterSources(AudioBook book) async {
-    // Create a concatenated audio file in memory for the folder chapters
-    return Future.wait(
-      book.chapters.map((chapter) async {
-        final fullChapterPath =
-            await ImportService.resolveFullPath(chapter.filePath!);
-        return AudioSource.file(fullChapterPath);
-      }),
-    );
-  }
-
-  Future<List<AudioSource>> _createSingleFileChapterSources(
-      AudioBook book, String fullPath) async {
-    return book.chapters.map((chapter) {
-      return ClippingAudioSource(
-        child: AudioSource.file(fullPath),
-        start: chapter.start,
-        end: chapter.end,
-      );
-    }).toList();
-  }
-
-  // Return player position
-  Duration get position => state.player?.position ?? Duration.zero;
-  // return current book
-  AudioBook? get currentBook => state.currentBook;
-  // Player control methods
-  Future<void> play() async => await state.player?.play();
-  Future<void> pause() async => await state.player?.pause();
+  Future<void> play() async => await _audioHandler.play();
+  Future<void> pause() async => await _audioHandler.pause();
   Future<void> togglePlayPause() async {
     if (state.isPlaying) {
       await pause();
@@ -225,61 +183,21 @@ class AudioPlayerNotifier extends StateNotifier<AudioPlayerState> {
       await play();
     }
   }
-  // Future<void> seek(Duration position) async =>
-  //     await state.player?.seek(position);
 
-  Future<void> seek(Duration position) async {
-    if (state.player != null && state.currentBook != null) {
-      final book = state.currentBook!;
-      if (book.isFolder && !book.isJoinedVolume) {
-        // For folder-based chapters, seek directly
-        await state.player?.seek(position);
-      } else {
-        // For single-file chapters or joined volumes, use relative position
-        await state.player?.seek(position, index: state.player?.currentIndex);
-      }
-    }
-  }
-
-  Future<void> skipForward() async {
-    if (state.player != null) {
-      final newPosition = state.player!.position + const Duration(seconds: 30);
-      await seek(newPosition);
-    }
-  }
-
-  Future<void> skipBackward() async {
-    if (state.player != null) {
-      final newPosition = state.player!.position - const Duration(seconds: 30);
-      await seek(newPosition);
-    }
-  }
-
-  Future<void> skipToNext() async {
-    if (state.playlist != null && (state.player?.hasNext ?? false)) {
-      await state.player?.seekToNext();
-    }
-  }
-
-  Future<void> skipToPrevious() async {
-    if (state.playlist != null && (state.player?.hasPrevious ?? false)) {
-      await state.player?.seekToPrevious();
-    }
-  }
+  Future<void> seek(Duration position) async =>
+      await _audioHandler.seek(position);
+  Future<void> skipForward() async => await _audioHandler.seekForward(true);
+  Future<void> skipBackward() async => await _audioHandler.seekBackward(true);
+  Future<void> skipToNext() async => await _audioHandler.skipToNext();
+  Future<void> skipToPrevious() async => await _audioHandler.skipToPrevious();
 
   Future<void> seekToChapter(int chapterIndex) async {
-    if (chapterIndex >= 0 &&
-        chapterIndex < (state.currentBook?.chapters.length ?? 0)) {
-      await state.player?.seek(Duration.zero, index: chapterIndex);
-    }
+    await _audioHandler.skipToChapter(chapterIndex);
   }
 
   Future<void> clearCurrentBook() async {
     try {
-      if (state.isPlaying) {
-        await state.player?.stop();
-      }
-      state.player?.dispose();
+      await _audioHandler.pause();
       state = AudioPlayerState();
     } catch (e) {
       print('Error clearing current book: $e');
@@ -288,7 +206,15 @@ class AudioPlayerNotifier extends StateNotifier<AudioPlayerState> {
 
   @override
   void dispose() {
-    state.player?.dispose();
+    if (state.currentBook != null) {
+      // Save final position before disposing
+      final book = state.currentBook!.copyWith(
+        currentPosition: state.chapterPosition,
+        currentChapterIndex: state.chapterIndex,
+      );
+      ref.read(audiobooksProvider.notifier).updateAudiobook(book);
+    }
+    _audioHandler.closeHandler();
     super.dispose();
   }
 }

@@ -1,6 +1,10 @@
+import 'dart:typed_data';
+
 import 'package:audiobook_manager/utils/duration_formatter.dart';
 import 'package:ffmpeg_kit_flutter/ffmpeg_kit.dart';
+import 'package:ffmpeg_kit_flutter/ffmpeg_kit_config.dart';
 import 'package:ffmpeg_kit_flutter/ffprobe_kit.dart';
+import 'package:ffmpeg_kit_flutter/log_redirection_strategy.dart';
 import 'package:ffmpeg_kit_flutter/return_code.dart';
 import 'package:uuid/uuid.dart';
 import 'dart:io';
@@ -9,7 +13,16 @@ import 'dart:convert';
 import '../models/audiobook.dart';
 
 class MetadataService {
+  static void _initFFmpeg() {
+    FFmpegKitConfig.enableLogCallback(null);
+    FFmpegKitConfig.enableStatisticsCallback(null);
+    FFmpegKitConfig.enableFFmpegSessionCompleteCallback(null);
+    FFmpegKitConfig.setLogRedirectionStrategy(
+        LogRedirectionStrategy.neverPrintLogs);
+  }
+
   static Future<Map<String, dynamic>> extractMetadata(String filePath) async {
+    _initFFmpeg();
     Map<String, dynamic> metadata = {
       'cover_photo': null,
       'chapters': [],
@@ -20,23 +33,7 @@ class MetadataService {
 
     try {
       // Extract cover art
-      final String coverOutputPath =
-          '${Directory.systemTemp.path}/${Uuid().v4()}cover.jpg';
-
-      final coverResult = await FFmpegKit.execute(
-          '-i "$filePath" -an -vcodec copy "$coverOutputPath"');
-      try {
-        final coverFile = File(coverOutputPath);
-        if (ReturnCode.isSuccess(await coverResult.getReturnCode())) {
-          if (await coverFile.exists()) {
-            metadata['cover_photo'] = await coverFile.readAsBytes();
-          }
-        }
-        await coverFile.delete();
-      } catch (e) {
-        print("Error getting cover photo: ${e}");
-      }
-
+      metadata['cover_photo'] = await _extractCoverArt(filePath);
       // Get metadata using FFprobe
       final probeResult = await FFprobeKit.execute(
           '-v quiet -print_format json -show_chapters -show_format -show_streams "$filePath"');
@@ -159,6 +156,84 @@ class MetadataService {
       print('Error extracting metadata: $e');
       return metadata;
     }
+  }
+
+  static Future<Uint8List?> _extractCoverArt(String filePath) async {
+    final String coverOutputPath =
+        '${Directory.systemTemp.path}/${Uuid().v4()}cover.jpg';
+
+    // List of FFmpeg commands to try
+    final coverCommands = [
+      // Method 1: Extract album art stream
+      '-v quiet -i "$filePath" -an -vcodec copy "$coverOutputPath"',
+      // Method 2: Extract embedded art
+      '-v quiet -i "$filePath" -map 0:v -map -0:V -c copy "$coverOutputPath"',
+      // Method 3: Extract first attached picture
+      '-v quiet -i "$filePath" -map 0:v:0 -frames:v 1 "$coverOutputPath"',
+      // Method 4: Extract embedded art (alternative)
+      '-v quiet -i "$filePath" -an -vf scale=600:-1 "$coverOutputPath"',
+      // Method 5: Extract metadata picture
+      '-v quiet -i "$filePath" -map 0:v? -map -0:V? -c copy "$coverOutputPath"',
+    ];
+
+    // Try each method until we successfully extract the cover
+    for (final command in coverCommands) {
+      try {
+        final coverResult = await FFmpegKit.execute(command);
+        final coverFile = File(coverOutputPath);
+
+        if (ReturnCode.isSuccess(await coverResult.getReturnCode()) &&
+            await coverFile.exists()) {
+          final bytes = await coverFile.readAsBytes();
+          await coverFile.delete();
+          return bytes;
+        }
+
+        // Clean up if the file exists but extraction failed
+        if (await coverFile.exists()) {
+          await coverFile.delete();
+        }
+      } catch (e) {
+        print("Error trying cover extraction method: $e");
+        continue;
+      }
+    }
+
+    // Try extracting cover from metadata directly as a last resort
+    try {
+      final probeResult = await FFprobeKit.execute(
+          '-v quiet -print_format json -show_streams -select_streams v "$filePath"');
+
+      if (ReturnCode.isSuccess(await probeResult.getReturnCode())) {
+        final jsonOutput = await probeResult.getOutput();
+        if (jsonOutput != null) {
+          final Map<String, dynamic> probeData = json.decode(jsonOutput);
+          if (probeData.containsKey('streams') &&
+              probeData['streams'] is List &&
+              probeData['streams'].isNotEmpty) {
+            // If we found a video stream, try one more time with specific parameters
+            final lastCommand =
+                '-i "$filePath" -map 0:${probeData['streams'][0]['index']} -frames:v 1 "$coverOutputPath"';
+            final lastResult = await FFmpegKit.execute(lastCommand);
+            final coverFile = File(coverOutputPath);
+
+            if (ReturnCode.isSuccess(await lastResult.getReturnCode()) &&
+                await coverFile.exists()) {
+              final bytes = await coverFile.readAsBytes();
+              await coverFile.delete();
+              return bytes;
+            }
+            if (await coverFile.exists()) {
+              await coverFile.delete();
+            }
+          }
+        }
+      }
+    } catch (e) {
+      print("Error in final cover extraction attempt: $e");
+    }
+
+    return null;
   }
 
   static String _getFileNameWithoutExtension(String filePath) {

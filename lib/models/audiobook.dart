@@ -21,7 +21,7 @@ class Chapter {
         'title': title,
         'start': start.inMilliseconds,
         'end': end.inMilliseconds,
-        'duration': duration.inMicroseconds,
+        'duration': duration.inMilliseconds,
         'filePath': filePath,
       };
 
